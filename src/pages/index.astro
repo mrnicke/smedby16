@@ -1,0 +1,172 @@
+---
+import Layout from '../components/Layout.astro';
+import { news } from '../data/news';
+import { calendarEvents } from '../data/calendar';
+
+const latestNews = news[0];
+const today = new Date().toISOString().slice(0, 10);
+const nextEvent = calendarEvents
+  .filter((event) => event.date >= today)
+  .sort((a, b) => a.date.localeCompare(b.date))[0];
+---
+
+<Layout
+  title="Smedby 1:6 | Information för boende"
+  description="Hitta garage, gångvägar, regler, dokument och kontaktvägar för boende i Samfällighetsföreningen Smedby 1:6."
+>
+  <section class="guide-hero" aria-labelledby="guide-hero-title">
+    <img
+      src="/images/smedby-aerial-hero.webp"
+      alt="Flygvy över Smedby med villor, vägar och grönska"
+      width="1889"
+      height="833"
+      fetchpriority="high"
+    />
+    <div class="guide-hero-shade" aria-hidden="true"></div>
+    <div class="container guide-hero-copy">
+      <h1 id="guide-hero-title">Hitta rätt i<br />vårt område</h1>
+      <p>En guide till garage, gångvägar, miljöstationer och entréer i Smedby 1:6.</p>
+      <a class="guide-primary-action" href="#omradesguiden">
+        <i class="ph ph-map-trifold" aria-hidden="true"></i>
+        Utforska områdesguiden
+      </a>
+    </div>
+  </section>
+
+  <section class="guide-overview" id="omradesguiden" aria-labelledby="guide-overview-title">
+    <h2 class="sr-only" id="guide-overview-title">Områdesguiden</h2>
+    <div class="container guide-overview-grid">
+      <div class="guide-map">
+        <img
+          src="/images/smedby-area-overview.webp"
+          alt="Översikt över Smedbyområdet med markerade platser"
+          width="1586"
+          height="992"
+          loading="eager"
+        />
+        <a class="guide-marker guide-marker-1" href="/trafikregler/#garage" aria-label="1. Garage och parkering">1</a>
+        <a class="guide-marker guide-marker-2" href="/for-boende/" aria-label="2. Gångvägar och grönytor">2</a>
+        <a class="guide-marker guide-marker-3" href="/for-boende/" aria-label="3. Sophantering och återvinning">3</a>
+        <a class="guide-marker guide-marker-4" href="/trafikregler/" aria-label="4. Områdets entréer">4</a>
+      </div>
+
+      <nav class="guide-directory" aria-label="Platser i området">
+        <a href="/trafikregler/#garage">
+          <span class="guide-number">1</span>
+          <span><strong>Garage &amp; parkering</strong><small>Garage, uppfarter och parkeringsregler.</small></span>
+          <i class="ph ph-arrow-right" aria-hidden="true"></i>
+        </a>
+        <a href="/for-boende/">
+          <span class="guide-number">2</span>
+          <span><strong>Gångvägar &amp; grönytor</strong><small>Gångvägar, lekplats och gemensamma ytor.</small></span>
+          <i class="ph ph-arrow-right" aria-hidden="true"></i>
+        </a>
+        <a href="/for-boende/">
+          <span class="guide-number">3</span>
+          <span><strong>Sophantering &amp; återvinning</strong><small>Placering av sopkärl och återvinningsstationer.</small></span>
+          <i class="ph ph-arrow-right" aria-hidden="true"></i>
+        </a>
+        <a href="/trafikregler/">
+          <span class="guide-number">4</span>
+          <span><strong>Områdets entréer</strong><small>Infarter, belysning och farthinder.</small></span>
+          <i class="ph ph-arrow-right" aria-hidden="true"></i>
+        </a>
+      </nav>
+
+      <aside class="guide-help" aria-labelledby="guide-help-title">
+        <div class="guide-help-panel">
+          <h2 id="guide-help-title">Så här använder du guiden</h2>
+          <p>Kartan och listan hjälper dig snabbt att hitta rätt i vårt område. Välj ett område i kartan eller listan för mer information.</p>
+          <div class="guide-help-note">
+            <span><i class="ph ph-compass" aria-hidden="true"></i></span>
+            <p>Guiden uppdateras löpande.<br />Har du synpunkter eller förslag?</p>
+          </div>
+          <a href="/kontakt/">Kontakta styrelsen <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="guide-latest" aria-labelledby="guide-latest-title">
+    <div class="container guide-latest-grid">
+      <div class="guide-latest-intro">
+        <span class="guide-latest-icon"><i class="ph ph-newspaper" aria-hidden="true"></i></span>
+        <div>
+          <h2 id="guide-latest-title">Senaste nytt</h2>
+          <p>Håll dig uppdaterad om vad som händer i området.</p>
+          <a href="/senaste-nytt/">Visa alla nyheter <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        </div>
+      </div>
+
+      <img
+        class="guide-latest-image"
+        src="/images/miljo-garage-parkering.webp"
+        alt="Garage och parkeringsyta i Smedby"
+        width="1400"
+        height="788"
+        loading="lazy"
+      />
+
+      <article class="guide-latest-story">
+        <time datetime={latestNews.date}>{latestNews.displayDate}</time>
+        <h3>{latestNews.title}</h3>
+        <p>{latestNews.summary}</p>
+        <a href={`/nyheter/${latestNews.slug}/`}>Läs mer <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+      </article>
+
+      <aside class="guide-contact" aria-label="Kontakta styrelsen">
+        <span><i class="ph ph-envelope-simple" aria-hidden="true"></i></span>
+        <div>
+          <strong>Frågor eller synpunkter?</strong>
+          <p>Styrelsen hjälper gärna till.</p>
+          <a href="/kontakt/">Kontakta styrelsen <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="resident-tools" id="verktyg" aria-labelledby="resident-tools-title">
+    <div class="container resident-tools-inner">
+      <header class="resident-tools-heading">
+        <p class="eyebrow">Snabbt och praktiskt</p>
+        <h2 id="resident-tools-title">Planera och hitta rätt</h2>
+      </header>
+
+      <div class="resident-tools-grid">
+        <article class="resident-tool resident-calendar-tool">
+          <span class="resident-tool-icon"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span>
+          <div>
+            <p class="meta">Viktiga datum</p>
+            {
+              nextEvent ? (
+                <>
+                  <h3>{nextEvent.title}</h3>
+                  <p>{new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${nextEvent.date}T12:00:00`))}</p>
+                </>
+              ) : (
+                <>
+                  <h3>Inga kommande datum publicerade</h3>
+                  <p>Bekräftade aktiviteter och arbeten visas här när de läggs in.</p>
+                </>
+              )
+            }
+            <a href="/kalender/">Öppna kalendern <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+          </div>
+        </article>
+
+        <article class="resident-tool resident-search-tool">
+          <span class="resident-tool-icon"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
+          <div>
+            <p class="meta">Sök på webbplatsen</p>
+            <h3>Hitta regler, dokument och information</h3>
+            <form class="home-search" action="/sok/" method="get" role="search">
+              <label class="sr-only" for="home-search-query">Vad letar du efter?</label>
+              <input id="home-search-query" name="q" type="search" placeholder="Exempel: parkering" required minlength="2" />
+              <button type="submit" aria-label="Sök"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+            </form>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+</Layout>

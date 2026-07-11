@@ -1,0 +1,32 @@
+---
+import Layout from '../../components/Layout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import Section from '../../components/Section.astro';
+import { news } from '../../data/news';
+---
+
+<Layout
+  title="Senaste nytt | Smedby 1:6"
+  description="Nyheter för boende i Samfällighetsföreningen Smedby 1:6."
+>
+  <PageHeader
+    eyebrow="Nyheter"
+    title="Senaste nytt"
+    intro="Publicerade nyheter och viktig information för boende."
+  />
+
+  <Section>
+    <div class="news-list">
+      {
+        news.map((item) => (
+          <article class="news-card">
+            <p class="meta">{item.displayDate}</p>
+            <h2><a href={`/nyheter/${item.slug}/`}>{item.title}</a></h2>
+            <p>{item.summary}</p>
+            <a class="text-link" href={`/nyheter/${item.slug}/`}>Läs mer</a>
+          </article>
+        ))
+      }
+    </div>
+  </Section>
+</Layout>

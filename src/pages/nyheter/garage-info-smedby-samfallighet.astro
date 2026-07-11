@@ -1,0 +1,27 @@
+---
+import Layout from '../../components/Layout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import Section from '../../components/Section.astro';
+import Notice from '../../components/Notice.astro';
+import { news } from '../../data/news';
+
+const item = news.find((newsItem) => newsItem.slug === 'garage-info-smedby-samfallighet');
+
+if (!item) {
+  throw new Error('Nyheten kunde inte hittas.');
+}
+---
+
+<Layout title={`${item.title} | Smedby 1:6`} description={item.summary}>
+  <PageHeader eyebrow={item.displayDate} title={item.title} intro={item.summary} />
+
+  <Section>
+    <article class="article-body">
+      {item.paragraphs.slice(0, 5).map((paragraph) => <p>{paragraph}</p>)}
+      <Notice title="Viktigt" tone="warning">
+        <p>{item.paragraphs[5]}</p>
+      </Notice>
+      {item.paragraphs.slice(6).map((paragraph) => <p>{paragraph}</p>)}
+    </article>
+  </Section>
+</Layout>

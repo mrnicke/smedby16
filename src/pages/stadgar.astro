@@ -1,0 +1,33 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import Notice from '../components/Notice.astro';
+import { siteConfig } from '../config/site';
+---
+
+<Layout
+  title="Stadgar | Smedby 1:6"
+  description="Samfällighetens stadgar i PDF-format."
+>
+  <PageHeader
+    eyebrow="Dokument"
+    title="Stadgar"
+    intro="Här finns samfällighetens stadgar i PDF-format."
+  />
+
+  <Section>
+    <div class="document-panel">
+      <div>
+        <h2>Stadgar Smedby Samfällighet 1:6</h2>
+        <p>Reviderade stadgar, 25 april 2022. Ladda ner PDF-filen och spara den lokalt vid behov.</p>
+      </div>
+      <a class="button button-primary" href={siteConfig.documents.bylaws} download>
+        Ladda ner stadgar
+      </a>
+    </div>
+    <Notice title="Om filen inte öppnas" tone="info">
+      <p>PDF-filen behöver finnas i webbplatsens dokumentmapp när sidan publiceras.</p>
+    </Notice>
+  </Section>
+</Layout>

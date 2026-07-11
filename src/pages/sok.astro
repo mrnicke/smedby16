@@ -1,0 +1,170 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import { searchEntries } from '../data/search-index';
+---
+
+<Layout
+  title="Sök | Smedby 1:6"
+  description="Sök bland regler, boendeinformation, nyheter, dokument och viktiga datum för Smedby 1:6."
+>
+  <PageHeader
+    compact
+    eyebrow="Sök"
+    title="Vad letar du efter?"
+    intro="Sök bland regler, boendeinformation, nyheter, dokument och viktiga datum."
+  />
+
+  <Section>
+    <div class="search-layout">
+      <form class="site-search-form" role="search" data-site-search>
+        <div class="search-field">
+          <label for="site-search-query">Sökord</label>
+          <div class="search-input-wrap">
+            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+            <input
+              id="site-search-query"
+              name="q"
+              type="search"
+              autocomplete="off"
+              placeholder="Exempel: parkering, stadgar eller stämma"
+              data-search-query
+            />
+          </div>
+        </div>
+
+        <div class="search-field search-type-field">
+          <label for="site-search-type">Innehållstyp</label>
+          <select id="site-search-type" name="type" data-search-type>
+            <option value="all">Allt innehåll</option>
+            <option value="information">Information</option>
+            <option value="nyheter">Nyheter</option>
+            <option value="dokument">Dokument</option>
+            <option value="kalender">Kalender</option>
+          </select>
+        </div>
+
+        <button class="button button-primary search-submit" type="submit">Sök</button>
+      </form>
+
+      <div class="search-results-shell">
+        <p class="search-summary" aria-live="polite" data-search-summary>
+          Skriv minst två tecken för att börja söka.
+        </p>
+        <ol class="search-results" data-search-results></ol>
+        <div class="search-empty" data-search-empty hidden>
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          <h2>Inga träffar</h2>
+          <p>Prova ett kortare sökord eller välj en annan innehållstyp.</p>
+        </div>
+      </div>
+    </div>
+  </Section>
+
+  <script is:inline type="application/json" id="search-index" set:html={JSON.stringify(searchEntries)}></script>
+  <script>
+    const searchForm = document.querySelector('[data-site-search]');
+    const searchData = document.querySelector('#search-index');
+
+    if (searchForm instanceof HTMLFormElement && searchData) {
+      const entries = JSON.parse(searchData.textContent || '[]');
+      const queryInput = searchForm.querySelector('[data-search-query]');
+      const typeSelect = searchForm.querySelector('[data-search-type]');
+      const summary = document.querySelector('[data-search-summary]');
+      const results = document.querySelector('[data-search-results]');
+      const empty = document.querySelector('[data-search-empty]');
+
+      const normalize = (value: string) => value
+        .toLocaleLowerCase('sv-SE')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      const scoreEntry = (entry: { title: string; excerpt: string; keywords: string[] }, terms: string[]) => {
+        const title = normalize(entry.title);
+        const excerpt = normalize(entry.excerpt);
+        const keywords = normalize(entry.keywords.join(' '));
+        return terms.reduce((score, term) => {
+          if (title === term) return score + 12;
+          if (title.includes(term)) score += 7;
+          if (keywords.includes(term)) score += 3;
+          if (excerpt.includes(term)) score += 2;
+          return score;
+        }, 0);
+      };
+
+      const createResult = (entry: { href: string; typeLabel: string; title: string; excerpt: string }) => {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        const meta = document.createElement('span');
+        const heading = document.createElement('h2');
+        const excerpt = document.createElement('p');
+        const arrow = document.createElement('i');
+
+        link.href = entry.href;
+        meta.className = 'search-result-type';
+        meta.textContent = entry.typeLabel;
+        heading.textContent = entry.title;
+        excerpt.textContent = entry.excerpt;
+        arrow.className = 'ph ph-arrow-right';
+        arrow.setAttribute('aria-hidden', 'true');
+
+        link.append(meta, heading, excerpt, arrow);
+        item.append(link);
+        return item;
+      };
+
+      const runSearch = ({ updateUrl = true } = {}) => {
+        if (!(queryInput instanceof HTMLInputElement) || !(typeSelect instanceof HTMLSelectElement)) return;
+        if (!(summary instanceof HTMLElement) || !(results instanceof HTMLOListElement) || !(empty instanceof HTMLElement)) return;
+
+        const query = queryInput.value.trim();
+        const selectedType = typeSelect.value;
+        const terms = normalize(query).split(/\s+/).filter(Boolean);
+        results.replaceChildren();
+        empty.hidden = true;
+
+        if (query.length < 2) {
+          summary.textContent = 'Skriv minst två tecken för att börja söka.';
+        } else {
+          const matches = entries
+            .filter((entry: { type: string }) => selectedType === 'all' || entry.type === selectedType)
+            .map((entry: { title: string; excerpt: string; keywords: string[] }) => ({ entry, score: scoreEntry(entry, terms) }))
+            .filter((match: { score: number }) => match.score > 0)
+            .sort((a: { score: number; entry: { title: string } }, b: { score: number; entry: { title: string } }) => b.score - a.score || a.entry.title.localeCompare(b.entry.title, 'sv'));
+
+          summary.textContent = matches.length === 1
+            ? `1 träff för ”${query}”`
+            : `${matches.length} träffar för ”${query}”`;
+          matches.forEach(({ entry }: { entry: { href: string; typeLabel: string; title: string; excerpt: string } }) => results.append(createResult(entry)));
+          empty.hidden = matches.length > 0;
+        }
+
+        if (updateUrl) {
+          const params = new URLSearchParams();
+          if (query) params.set('q', query);
+          if (selectedType !== 'all') params.set('type', selectedType);
+          const suffix = params.toString();
+          history.replaceState({}, '', suffix ? `/sok/?${suffix}` : '/sok/');
+        }
+      };
+
+      const params = new URLSearchParams(location.search);
+      if (queryInput instanceof HTMLInputElement) queryInput.value = params.get('q') || '';
+      if (typeSelect instanceof HTMLSelectElement) {
+        const requestedType = params.get('type');
+        if (requestedType && [...typeSelect.options].some((option) => option.value === requestedType)) {
+          typeSelect.value = requestedType;
+        }
+      }
+
+      searchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        runSearch();
+      });
+      queryInput?.addEventListener('input', () => runSearch());
+      typeSelect?.addEventListener('change', () => runSearch());
+      runSearch({ updateUrl: false });
+    }
+  </script>
+</Layout>

@@ -1,0 +1,25 @@
+---
+type Props = {
+  title: string;
+  subtitle: string;
+  ingress: string;
+  imageSrc: string;
+  imageAlt: string;
+};
+
+const { title, subtitle, ingress, imageSrc, imageAlt } = Astro.props;
+---
+
+<section class="hero">
+  <img class="hero-image" src={imageSrc} alt={imageAlt} />
+  <div class="hero-shade" aria-hidden="true"></div>
+  <div class="container hero-content">
+    <p class="eyebrow">Samfällighetsföreningen {title}</p>
+    <h1>{subtitle}</h1>
+    <p class="hero-ingress">{ingress}</p>
+    <div class="hero-actions">
+      <a class="button button-primary" href="/senaste-nytt/">Senaste nytt</a>
+      <a class="button button-secondary" href="/trafikregler/">Trafikregler</a>
+    </div>
+  </div>
+</section>

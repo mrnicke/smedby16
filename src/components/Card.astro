@@ -1,0 +1,28 @@
+---
+type Props = {
+  title: string;
+  text?: string;
+  href?: string;
+  eyebrow?: string;
+  label?: string;
+};
+
+const { title, text, href, eyebrow, label = 'Läs mer' } = Astro.props;
+---
+
+{
+  href ? (
+    <a class="card linked-card" href={href}>
+      {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
+      <h3>{title}</h3>
+      {text && <p>{text}</p>}
+      <span class="card-link">{label}</span>
+    </a>
+  ) : (
+    <article class="card">
+      {eyebrow && <p class="card-eyebrow">{eyebrow}</p>}
+      <h3>{title}</h3>
+      {text && <p>{text}</p>}
+    </article>
+  )
+}

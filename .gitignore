@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.astro/
+.pnpm-store/
+
+# Local design review and browser QA artifacts
+design-audit-*/
+design-mockups/
+design-qa/
+design-qa.md
+*.log
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editor and OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

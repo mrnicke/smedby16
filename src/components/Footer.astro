@@ -1,0 +1,23 @@
+---
+import { navigationItems } from '../data/navigation';
+import { siteConfig } from '../config/site';
+---
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <a class="footer-brand" href="/">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span>{siteConfig.name}</span>
+      </a>
+      <p>
+        Information för boende i Samfällighetsföreningen Smedby 1:6.
+      </p>
+    </div>
+    <nav aria-label="Sidfot">
+      <ul class="footer-links">
+        {navigationItems.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+      </ul>
+    </nav>
+  </div>
+</footer>

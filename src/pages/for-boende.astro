@@ -1,0 +1,106 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import Card from '../components/Card.astro';
+import Notice from '../components/Notice.astro';
+---
+
+<Layout
+  title="För boende | Smedby 1:6"
+  description="Praktisk information för boende i Samfällighetsföreningen Smedby 1:6."
+>
+  <PageHeader
+    eyebrow="Boendeinformation"
+    title="För boende"
+    intro="Här samlas praktisk information om vad som är bra att känna till som boende och fastighetsägare i området."
+  />
+
+  <Section title="Bra att känna till">
+    <div class="card-grid four">
+      <Card
+        title="Läs regler och stadgar"
+        text="Trafikreglerna och stadgarna beskriver hur gemensamma ytor, ansvar och beslut fungerar."
+        href="/trafikregler/"
+        label="Till trafikregler"
+      />
+      <Card
+        title="Håll dig uppdaterad"
+        text="Nyheter och meddelanden publiceras löpande när det finns information som berör boende."
+        href="/senaste-nytt/"
+        label="Senaste nytt"
+      />
+      <Card
+        title="Kontakta styrelsen"
+        text="Kontaktuppgifter kompletteras när föreningen har fastställt vilka kontaktvägar som ska visas publikt."
+        href="/kontakt/"
+        label="Kontaktsida"
+      />
+      <Card
+        title="Kalender och viktiga datum"
+        text="Se bekräftade möten, aktiviteter och arbeten som berör området."
+        href="/kalender/"
+        label="Öppna kalendern"
+      />
+    </div>
+  </Section>
+
+  <Section title="Nyinflyttad i området" variant="muted">
+    <div class="content-with-image">
+      <div class="article-body">
+        <p>
+          Som fastighetsägare i en samfällighet är du del av ett gemensamt ansvar för de anläggningar och ytor som föreningen förvaltar. Det kan handla om vägar, parkeringar, garage, belysning, grönytor eller annan gemensam infrastruktur.
+        </p>
+        <ul class="check-list">
+          <li>Läs igenom stadgarna så att du vet hur föreningen fungerar.</li>
+          <li>Ta del av trafik- och parkeringsreglerna för området.</li>
+          <li>Håll utkik efter nyheter, kallelser och praktisk information.</li>
+          <li>Kontakta styrelsen om du är osäker på vad som gäller.</li>
+        </ul>
+        <Notice title="Privat och gemensamt ansvar" tone="info">
+          <p>
+            Föreningen hanterar gemensamma frågor. Sådant som rör den egna fastigheten ansvarar normalt fastighetsägaren själv för, om inte stadgar eller särskilda beslut säger något annat.
+          </p>
+        </Notice>
+      </div>
+      <figure class="content-image">
+        <img src="/images/miljo-gangvag.webp" alt="Miljöbild av gångväg och bostäder i ett svenskt villaområde" loading="lazy" />
+        <figcaption>Miljöbild: gemensamma gångstråk och närmiljö.</figcaption>
+      </figure>
+    </div>
+  </Section>
+
+  <Section id="beslut-stamma-och-styrelse" title="Beslut, stämma och styrelse">
+    <div class="info-list">
+      <article>
+        <h2>Stämman beslutar</h2>
+        <p>
+          Föreningsstämman är medlemmarnas forum för större beslut. Där behandlas till exempel ansvarsfrihet, val, ekonomi, motioner och andra frågor som ska beslutas av medlemmarna.
+        </p>
+      </article>
+      <article>
+        <h2>Styrelsen sköter löpande frågor</h2>
+        <p>
+          Styrelsen ansvarar för den löpande förvaltningen enligt stadgar, stämmobeslut och föreningens uppdrag. Styrelsen ersätter inte stämman i frågor som ska beslutas av medlemmarna.
+        </p>
+      </article>
+      <article>
+        <h2>Motioner och förslag</h2>
+        <p>
+          Medlemmar kan normalt lämna förslag till stämman enligt de rutiner och tider som framgår av stadgarna eller kallelsen. Praktiska synpunkter kan också lämnas till styrelsen.
+        </p>
+      </article>
+    </div>
+  </Section>
+
+  <Section title="Ekonomi och underhåll" variant="muted">
+    <div class="article-body">
+      <p>
+        Avgifter och gemensamma medel används för föreningens drift, löpande skötsel och planerat underhåll. För anläggningar av större värde är det vanligt att föreningen arbetar med en underhållsplan och avsätter medel för framtida åtgärder.
+      </p>
+      <p>
+        Exakta belopp, betalningsrutiner och budgetbeslut bör alltid kontrolleras mot föreningens aktuella handlingar, exempelvis stämmoprotokoll, budget och stadgar.
+      </p>
+    </div>
+  </Section>
+</Layout>

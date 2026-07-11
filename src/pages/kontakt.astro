@@ -1,0 +1,33 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import Notice from '../components/Notice.astro';
+---
+
+<Layout
+  title="Kontakta styrelsen | Smedby 1:6"
+  description="Kontaktinformation för Samfällighetsföreningen Smedby 1:6."
+>
+  <PageHeader
+    eyebrow="Kontakt"
+    title="Kontakta styrelsen"
+    intro="Använd sidan för att komma i kontakt med styrelsen."
+  />
+
+  <Section>
+    <div class="contact-layout">
+      <div>
+        <h2>Kontaktuppgifter kompletteras</h2>
+        <p>
+          Kontaktuppgifter och eventuellt formulär aktiveras i nästa steg.
+        </p>
+      </div>
+      <Notice title="Fas 1 är statisk" tone="info">
+        <p>
+          Inget formulär skickas från webbplatsen i denna version. När kontaktväg är fastställd kan den läggas in centralt i konfigurationen.
+        </p>
+      </Notice>
+    </div>
+  </Section>
+</Layout>

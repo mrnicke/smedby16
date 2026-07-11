@@ -1,0 +1,119 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import Card from '../components/Card.astro';
+import Notice from '../components/Notice.astro';
+---
+
+<Layout
+  title="Vad är en samfällighet? | Smedby 1:6"
+  description="Kort information om vad en samfällighetsförening är och hur den fungerar."
+>
+  <PageHeader
+    eyebrow="Information"
+    title="Vad är en samfällighet?"
+    intro="En samfällighetsförening förvaltar anläggningar och mark som flera fastigheter använder gemensamt."
+  />
+
+  <Section title="Så fungerar föreningen">
+    <div class="card-grid three">
+      <Card
+        title="Gemensam förvaltning"
+        text="Föreningen förvaltar anläggningar och mark för gemensamt nyttjande."
+      />
+      <Card
+        title="Fastighetsägare är medlemmar"
+        text="Medlemmar är fastighetsägare som har del i samfälligheten."
+      />
+      <Card
+        title="Stämma och styrelse"
+        text="Stämman är beslutande organ och styrelsen är verkställande organ."
+      />
+    </div>
+  </Section>
+
+  <Section variant="muted">
+    <div class="article-body">
+      <h2>Bildas enligt lag</h2>
+      <p>
+        En samfällighetsförening bildas enligt lagen om förvaltning av samfälligheter. Syftet är att skapa en tydlig form för skötsel, beslut och ekonomi när flera fastigheter delar ansvar.
+      </p>
+      <h2>Vad kan ingå?</h2>
+      <p>
+        En gemensamhetsanläggning kan avse exempelvis vägar, grönområden, lekplatser, garage, parkeringar, ledningar, belysning och andra anläggningar som används gemensamt.
+      </p>
+      <Notice title="Kort sammanfattat" tone="success">
+        <p>
+          Samfälligheten gör det möjligt att sköta gemensamma ytor och anläggningar på ett ordnat sätt, med beslut på stämman och löpande arbete via styrelsen.
+        </p>
+      </Notice>
+    </div>
+  </Section>
+
+  <Section title="Vanliga begrepp">
+    <div class="definition-grid">
+      <article>
+        <h2>Samfällighet</h2>
+        <p>Gemensam egendom, rättighet eller anläggning som flera fastigheter har del i.</p>
+      </article>
+      <article>
+        <h2>Gemensamhetsanläggning</h2>
+        <p>Anläggning som är till nytta för flera fastigheter, till exempel väg, parkering, garage, belysning eller grönyta.</p>
+      </article>
+      <article>
+        <h2>Delägarfastighet</h2>
+        <p>Fastighet som har del i samfälligheten. Ägaren är normalt medlem i föreningen.</p>
+      </article>
+      <article>
+        <h2>Andelstal</h2>
+        <p>Anger hur kostnader och ibland röster i ekonomiska frågor fördelas mellan fastigheterna.</p>
+      </article>
+      <article>
+        <h2>Stämma</h2>
+        <p>Föreningens beslutande möte där medlemmarna behandlar större föreningsfrågor.</p>
+      </article>
+      <article>
+        <h2>Styrelse</h2>
+        <p>Det organ som sköter den löpande förvaltningen utifrån stadgar och stämmobeslut.</p>
+      </article>
+    </div>
+  </Section>
+
+  <Section title="Vanliga frågor" variant="muted">
+    <div class="faq-list">
+      <details>
+        <summary>Är alla boende medlemmar i samfälligheten?</summary>
+        <p>
+          Medlemskapet är kopplat till fastigheten. Det är fastighetsägare som normalt är medlemmar i samfällighetsföreningen.
+        </p>
+      </details>
+      <details>
+        <summary>Vad beslutar styrelsen och vad beslutar stämman?</summary>
+        <p>
+          Styrelsen hanterar den löpande förvaltningen. Större frågor, val, ansvarsfrihet, budget och andra föreningsfrågor hanteras normalt på föreningsstämman enligt stadgarna.
+        </p>
+      </details>
+      <details>
+        <summary>Vad används avgifterna till?</summary>
+        <p>
+          Avgifter används för gemensamma kostnader, drift och underhåll av det föreningen ansvarar för. Exakta nivåer och beslut ska kontrolleras mot föreningens aktuella handlingar.
+        </p>
+      </details>
+      <details>
+        <summary>Var hittar jag det som gäller för Smedby 1:6?</summary>
+        <p>
+          Börja med föreningens stadgar, trafikregler och publicerade nyheter. Vid osäkerhet bör styrelsen kontaktas.
+        </p>
+      </details>
+    </div>
+  </Section>
+
+  <Section>
+    <Notice title="Allmän information" tone="info">
+      <p>
+        Informationen på denna sida är en förenklad beskrivning. Föreningens stadgar, stämmobeslut och gällande lag har företräde om något behöver bedömas formellt.
+      </p>
+    </Notice>
+  </Section>
+</Layout>

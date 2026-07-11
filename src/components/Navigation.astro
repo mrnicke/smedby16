@@ -1,0 +1,120 @@
+---
+import { navigationItems } from '../data/navigation';
+import { siteConfig } from '../config/site';
+
+type Props = {
+  currentPath: string;
+};
+
+const { currentPath } = Astro.props;
+
+const isActive = (href: string) =>
+  href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+---
+
+<header class="site-header">
+  <nav class="nav container" aria-label="Huvudnavigation">
+    <a class="brand" href="/" aria-label="Smedby 1:6 startsida">
+      <span class="brand-mark" aria-hidden="true">S</span>
+      <span class="brand-copy">
+        <span>{siteConfig.name}</span>
+        <span>Samfällighetsföreningen</span>
+      </span>
+    </a>
+    <ul class="nav-links nav-links-primary">
+      {
+        navigationItems.filter((item) => item.primary !== false).map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class:list={[isActive(item.href) && 'is-active']}
+              aria-current={isActive(item.href) ? 'page' : undefined}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <div class="nav-actions">
+      <a
+        class:list={['nav-search', isActive('/sok/') && 'is-active']}
+        href="/sok/"
+        aria-label="Sök på webbplatsen"
+        aria-current={isActive('/sok/') ? 'page' : undefined}
+      >
+        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+      </a>
+      <a class="nav-contact" href="/kontakt/" aria-label="Kontakta styrelsen">
+        <i class="ph ph-envelope-simple" aria-hidden="true"></i>
+        <span>Kontakta styrelsen</span>
+      </a>
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-controls="primary-menu"
+        aria-expanded="false"
+        data-nav-toggle
+      >
+        <i class="ph ph-list" aria-hidden="true" data-menu-icon></i>
+        <span>Meny</span>
+      </button>
+    </div>
+    <div class="nav-menu" id="primary-menu" data-nav-menu hidden>
+      <div class="nav-menu-inner container">
+        <p class="nav-menu-label">Gå direkt till</p>
+        <ul class="nav-links">
+          {
+            navigationItems.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  class:list={[isActive(item.href) && 'is-active']}
+                  aria-current={isActive(item.href) ? 'page' : undefined}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<script is:inline>
+  const toggle = document.querySelector('[data-nav-toggle]');
+  const menu = document.querySelector('[data-nav-menu]');
+
+  if (toggle && menu) {
+    toggle.addEventListener('click', () => {
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!isOpen));
+      menu.hidden = isOpen;
+      document.body.classList.toggle('menu-open', !isOpen);
+      const label = toggle.querySelector('span');
+      if (label) label.textContent = isOpen ? 'Meny' : 'Stäng';
+      const icon = toggle.querySelector('[data-menu-icon]');
+      if (icon) {
+        icon.classList.toggle('ph-list', isOpen);
+        icon.classList.toggle('ph-x', !isOpen);
+      }
+    });
+
+    menu.addEventListener('click', (event) => {
+      if (event.target instanceof HTMLAnchorElement) {
+        toggle.setAttribute('aria-expanded', 'false');
+        menu.hidden = true;
+        document.body.classList.remove('menu-open');
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+        toggle.click();
+        toggle.focus();
+      }
+    });
+  }
+</script>

@@ -1,0 +1,89 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import Notice from '../components/Notice.astro';
+---
+
+<Layout
+  title="Trafikregler | Smedby 1:6"
+  description="Regler för trafik, parkering och garage i Samfällighetsföreningen Smedby 1:6."
+>
+  <PageHeader
+    eyebrow="Regler"
+    title="Trafikregler"
+    intro="Området är byggt för så lite trafik som möjligt. Reglerna finns för trygghet, sikt och framkomlighet."
+  />
+
+  <Section title="Kort version">
+    <div class="content-with-image">
+      <div class="rule-grid">
+        <Notice title="10 km/h" tone="warning">
+          <p>Hastighetsbegränsningen inom området är 10 km/h.</p>
+        </Notice>
+        <Notice title="Minimera körning" tone="info">
+          <p>Körning ska begränsas till minimum och främst ske vid i- och urlastning av stora eller tunga saker.</p>
+        </Notice>
+        <Notice title="Parkera rätt" tone="info">
+          <p>Parkering sker endast i markerade rutor. Gator, vändplaner och gräsmattor får inte användas för parkering.</p>
+        </Notice>
+      </div>
+      <figure class="content-image">
+        <img src="/images/miljo-villagata.webp" alt="Miljöbild av lugn villagata med häckar och gemensam väg" loading="lazy" />
+        <figcaption>Miljöbild: lokalgatorna är till för trygg framkomlighet.</figcaption>
+      </figure>
+    </div>
+  </Section>
+
+  <Section title="Trafik i området" variant="muted">
+    <div class="article-body">
+      <p>
+        Vägarna i området har tunn asfalt, begränsad sikt och ska vara säkra för både barn och vuxna. Därför gäller ett generellt förbud mot bil-, mc- och mopedkörning samt parkering inom området.
+      </p>
+      <ul>
+        <li>Körning ska begränsas till minimum.</li>
+        <li>I- och urlastning av stora eller tunga saker är det huvudsakliga undantaget.</li>
+        <li>Fordon får inte bli stående efter i- eller urlastning.</li>
+        <li>Handikappfordon och sjuktransporter är tillåtna.</li>
+        <li>Lämning och hämtning bör ske vid parkeringsplatserna.</li>
+      </ul>
+    </div>
+  </Section>
+
+  <Section title="Parkering">
+    <div class="article-body">
+      <ul>
+        <li>Parkering är endast tillåten i markerade rutor.</li>
+        <li>Varje husägare har egen parkeringsplats.</li>
+        <li>Gästplatser är avsedda för gäster.</li>
+        <li>Gästplatser ska inte användas som permanent parkering eller boendeparkering.</li>
+        <li>Parkering på vändplan, gator och gräsmattor är förbjuden.</li>
+      </ul>
+      <Notice title="Sikt vid korsningar och utfarter" tone="warning">
+        <p>Häckar vid korsningar och utfarter ska hållas klippta så att sikten är god.</p>
+      </Notice>
+    </div>
+  </Section>
+
+  <Section id="garage" title="Garage" variant="muted">
+    <div class="content-with-image">
+      <div class="article-body">
+        <p>
+          Garage är avsedda för fordon. De ska inte användas som allmänt förråd, arbetsplats eller för laddning och kontinuerlig elanvändning.
+        </p>
+      </div>
+      <figure class="content-image">
+        <img src="/images/miljo-garage-parkering.webp" alt="Miljöbild av garage och parkeringsplatser i ett svenskt bostadsområde" loading="lazy" />
+        <figcaption>Miljöbild: garage och parkeringar ska användas på ett ordnat sätt.</figcaption>
+      </figure>
+    </div>
+  </Section>
+
+  <Section title="Ansvar">
+    <div class="article-body">
+      <p>
+        Husägare ansvarar för att gäster följer trafik- och parkeringsreglerna.
+      </p>
+    </div>
+  </Section>
+</Layout>

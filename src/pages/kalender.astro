@@ -1,0 +1,174 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import { calendarEvents } from '../data/calendar';
+
+const now = new Date();
+const today = now.toISOString().slice(0, 10);
+const upcomingEvents = calendarEvents
+  .filter((event) => event.date >= today)
+  .sort((a, b) => a.date.localeCompare(b.date));
+---
+
+<Layout
+  title="Kalender och viktiga datum | Smedby 1:6"
+  description="Kommande möten, aktiviteter, underhåll och viktiga datum för boende i Smedby 1:6."
+>
+  <PageHeader
+    compact
+    eyebrow="Kalender"
+    title="Viktiga datum"
+    intro="Här publiceras bekräftade möten, aktiviteter och arbeten som berör området."
+  />
+
+  <Section>
+    <div class="calendar-layout">
+      <div class="calendar-shell" data-calendar>
+        <div class="calendar-toolbar">
+          <div>
+            <p class="eyebrow">Månadsvy</p>
+            <h2 data-calendar-title>Kalender</h2>
+          </div>
+          <div class="calendar-actions" aria-label="Byt månad">
+            <button type="button" class="calendar-icon-button" data-calendar-previous aria-label="Föregående månad">
+              <i class="ph ph-caret-left" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="button button-secondary calendar-today" data-calendar-today>Idag</button>
+            <button type="button" class="calendar-icon-button" data-calendar-next aria-label="Nästa månad">
+              <i class="ph ph-caret-right" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="calendar-weekdays" aria-hidden="true">
+          <span>Mån</span><span>Tis</span><span>Ons</span><span>Tor</span><span>Fre</span><span>Lör</span><span>Sön</span>
+        </div>
+        <div class="calendar-grid" role="grid" aria-label="Kalenderdagar" data-calendar-grid></div>
+      </div>
+
+      <aside class="upcoming-panel" aria-labelledby="upcoming-title">
+        <div class="upcoming-panel-heading">
+          <span><i class="ph ph-calendar-dots" aria-hidden="true"></i></span>
+          <div>
+            <p class="eyebrow">Överblick</p>
+            <h2 id="upcoming-title">Kommande</h2>
+          </div>
+        </div>
+
+        {
+          upcomingEvents.length > 0 ? (
+            <ol class="upcoming-list">
+              {upcomingEvents.map((event) => (
+                <li>
+                  <time datetime={event.date}>{new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${event.date}T12:00:00`))}</time>
+                  <h3>{event.title}</h3>
+                  <p>{event.description}</p>
+                  {event.location && <small><i class="ph ph-map-pin" aria-hidden="true"></i>{event.location}</small>}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div class="calendar-empty">
+              <i class="ph ph-calendar-blank" aria-hidden="true"></i>
+              <h3>Inga kommande datum publicerade</h3>
+              <p>När styrelsen bekräftar ett möte, en aktivitet eller ett arbete visas det här.</p>
+            </div>
+          )
+        }
+
+        <a class="button button-secondary calendar-subscribe" href="/kalender.ics">
+          <i class="ph ph-download-simple" aria-hidden="true"></i>
+          Hämta kalenderfil
+        </a>
+      </aside>
+    </div>
+  </Section>
+
+  <script is:inline type="application/json" id="calendar-events" set:html={JSON.stringify(calendarEvents)}></script>
+  <script>
+    const calendarRoot = document.querySelector('[data-calendar]');
+    const calendarData = document.querySelector('#calendar-events');
+
+    if (calendarRoot instanceof HTMLElement && calendarData) {
+      const events = JSON.parse(calendarData.textContent || '[]');
+      const title = calendarRoot.querySelector('[data-calendar-title]');
+      const grid = calendarRoot.querySelector('[data-calendar-grid]');
+      const previous = calendarRoot.querySelector('[data-calendar-previous]');
+      const next = calendarRoot.querySelector('[data-calendar-next]');
+      const todayButton = calendarRoot.querySelector('[data-calendar-today]');
+      const todayDate = new Date();
+      let visibleMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+
+      const dateKey = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const renderCalendar = () => {
+        if (!(title instanceof HTMLElement) || !(grid instanceof HTMLElement)) return;
+
+        const monthName = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(visibleMonth);
+        title.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+        grid.replaceChildren();
+
+        const firstWeekday = (visibleMonth.getDay() + 6) % 7;
+        const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
+
+        for (let index = 0; index < firstWeekday; index += 1) {
+          const spacer = document.createElement('span');
+          spacer.className = 'calendar-day calendar-day-empty';
+          spacer.setAttribute('aria-hidden', 'true');
+          grid.append(spacer);
+        }
+
+        for (let day = 1; day <= daysInMonth; day += 1) {
+          const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
+          const key = dateKey(date);
+          const dayEvents = events.filter((event: { date: string }) => event.date === key);
+          const cell = document.createElement('div');
+          cell.className = 'calendar-day';
+          cell.setAttribute('role', 'gridcell');
+          cell.setAttribute('aria-label', new Intl.DateTimeFormat('sv-SE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date));
+
+          if (key === dateKey(todayDate)) cell.classList.add('is-today');
+          if (dayEvents.length > 0) cell.classList.add('has-events');
+
+          const number = document.createElement('span');
+          number.className = 'calendar-day-number';
+          number.textContent = String(day);
+          cell.append(number);
+
+          dayEvents.forEach((event: { title: string; href?: string }) => {
+            const eventElement = event.href ? document.createElement('a') : document.createElement('span');
+            eventElement.className = 'calendar-event';
+            eventElement.textContent = event.title;
+            if (event.href && eventElement instanceof HTMLAnchorElement) eventElement.href = event.href;
+            cell.append(eventElement);
+          });
+
+          grid.append(cell);
+        }
+      };
+
+      previous?.addEventListener('click', () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1);
+        renderCalendar();
+      });
+
+      next?.addEventListener('click', () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+        renderCalendar();
+      });
+
+      todayButton?.addEventListener('click', () => {
+        visibleMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+        renderCalendar();
+      });
+
+      renderCalendar();
+    }
+  </script>
+</Layout>

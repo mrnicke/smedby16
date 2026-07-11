@@ -1,0 +1,45 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Section from '../components/Section.astro';
+import Notice from '../components/Notice.astro';
+import { siteConfig } from '../config/site';
+---
+
+<Layout
+  title="Dokument | Smedby 1:6"
+  description="Publika dokument för Samfällighetsföreningen Smedby 1:6."
+>
+  <PageHeader
+    eyebrow="Dokument"
+    title="Dokument"
+    intro="Här samlas publika dokument. I nuläget finns föreningens stadgar som nedladdningsbar PDF."
+  />
+
+  <Section title="Publika dokument">
+    <div class="content-with-image">
+      <div class="document-list">
+        <article class="document-card">
+          <div>
+            <p class="meta">PDF</p>
+            <h2>Stadgar Smedby Samfällighet 1:6</h2>
+            <p>Reviderade stadgar, 25 april 2022. Dokumentet öppnas eller laddas ner som PDF.</p>
+          </div>
+          <a class="button button-primary" href={siteConfig.documents.bylaws} download>Ladda ner</a>
+        </article>
+      </div>
+      <figure class="content-image">
+        <img src="/images/miljo-gronyta.webp" alt="Miljöbild av gemensam grönyta i ett svenskt bostadsområde" loading="lazy" />
+        <figcaption>Miljöbild: dokumenten samlar regler och beslut för gemensamma frågor.</figcaption>
+      </figure>
+    </div>
+  </Section>
+
+  <Section variant="muted">
+    <Notice title="Kommande dokumentarkiv" tone="info">
+      <p>
+        Medlemsdokument kommer senare. Fas 1 innehåller ingen inloggning och inget privat dokumentarkiv.
+      </p>
+    </Notice>
+  </Section>
+</Layout>
