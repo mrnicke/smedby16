@@ -3,6 +3,8 @@ import Layout from '../components/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import Section from '../components/Section.astro';
 import { searchEntries } from '../data/search-index';
+import { getPublicSupabaseConfig } from '../lib/supabase/config';
+const supabaseConfig = getPublicSupabaseConfig();
 ---
 
 <Layout
@@ -63,12 +65,15 @@ import { searchEntries } from '../data/search-index';
   </Section>
 
   <script is:inline type="application/json" id="search-index" set:html={JSON.stringify(searchEntries)}></script>
+  <script is:inline type="application/json" id="search-supabase-config" set:html={JSON.stringify(supabaseConfig)}></script>
   <script>
     const searchForm = document.querySelector('[data-site-search]');
     const searchData = document.querySelector('#search-index');
+    const configData = document.querySelector('#search-supabase-config');
 
     if (searchForm instanceof HTMLFormElement && searchData) {
       const entries = JSON.parse(searchData.textContent || '[]');
+      const supabase = JSON.parse(configData?.textContent || 'null');
       const queryInput = searchForm.querySelector('[data-search-query]');
       const typeSelect = searchForm.querySelector('[data-search-type]');
       const summary = document.querySelector('[data-search-summary]');
@@ -114,7 +119,7 @@ import { searchEntries } from '../data/search-index';
         return item;
       };
 
-      const runSearch = ({ updateUrl = true } = {}) => {
+      const runSearch = async ({ updateUrl = true } = {}) => {
         if (!(queryInput instanceof HTMLInputElement) || !(typeSelect instanceof HTMLSelectElement)) return;
         if (!(summary instanceof HTMLElement) || !(results instanceof HTMLOListElement) || !(empty instanceof HTMLElement)) return;
 
@@ -127,11 +132,25 @@ import { searchEntries } from '../data/search-index';
         if (query.length < 2) {
           summary.textContent = 'Skriv minst två tecken för att börja söka.';
         } else {
-          const matches = entries
+          let matches = entries
             .filter((entry: { type: string }) => selectedType === 'all' || entry.type === selectedType)
             .map((entry: { title: string; excerpt: string; keywords: string[] }) => ({ entry, score: scoreEntry(entry, terms) }))
             .filter((match: { score: number }) => match.score > 0)
             .sort((a: { score: number; entry: { title: string } }, b: { score: number; entry: { title: string } }) => b.score - a.score || a.entry.title.localeCompare(b.entry.title, 'sv'));
+
+          if (supabase) {
+            try {
+              const response = await fetch(`${supabase.url}/rest/v1/rpc/search_public_content`, {
+                method: 'POST',
+                headers: { apikey: supabase.publishableKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ search_query: query, content_type: selectedType === 'all' ? null : selectedType, result_limit: 50, result_offset: 0 }),
+              });
+              if (response.ok) {
+                const labels: Record<string,string> = { information: 'Information', nyheter: 'Nyhet', dokument: 'Dokument', kalender: 'Kalender' };
+                matches = (await response.json()).map((entry: any) => ({ entry: { ...entry, typeLabel: labels[entry.type] ?? entry.type }, score: 1 }));
+              }
+            } catch { /* Den inbyggda snapshot-sökningen används som fallback. */ }
+          }
 
           summary.textContent = matches.length === 1
             ? `1 träff för ”${query}”`
@@ -160,11 +179,11 @@ import { searchEntries } from '../data/search-index';
 
       searchForm.addEventListener('submit', (event) => {
         event.preventDefault();
-        runSearch();
+        void runSearch();
       });
-      queryInput?.addEventListener('input', () => runSearch());
-      typeSelect?.addEventListener('change', () => runSearch());
-      runSearch({ updateUrl: false });
+      queryInput?.addEventListener('input', () => void runSearch());
+      typeSelect?.addEventListener('change', () => void runSearch());
+      void runSearch({ updateUrl: false });
     }
   </script>
 </Layout>

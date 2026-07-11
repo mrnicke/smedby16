@@ -1,0 +1,11 @@
+import { useEffect, useState } from 'react';
+import { getSupabaseBrowserClient } from '../../lib/supabase/client';
+
+type Item = { id?: string; label: string; href: string; target_page_key?: string | null; external_url?: string | null };
+export default function CmsNavigation({ initialItems, currentPath, siteName }: { initialItems: Item[]; currentPath: string; siteName: string }) {
+  const [items,setItems]=useState(initialItems); const[open,setOpen]=useState(false);
+  useEffect(()=>{const client=getSupabaseBrowserClient();if(!client)return;client.from('public_navigation_items').select('*').order('sort_order').then(({data})=>{if(data)setItems(data)})},[]);
+  useEffect(()=>{const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setOpen(false)};document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close)},[]);
+  const active=(href:string)=>href==='/'?currentPath==='/':currentPath.startsWith(href);
+  return <header className="site-header"><nav className="nav container" aria-label="Huvudnavigation"><a className="brand" href="/"><span className="brand-mark" aria-hidden="true">S</span><span className="brand-copy"><span>{siteName}</span><span>Samfällighetsföreningen</span></span></a><ul className="nav-links nav-links-primary">{items.slice(0,8).map(item=><li key={item.id??item.href}><a href={item.href} className={active(item.href)?'is-active':''} aria-current={active(item.href)?'page':undefined}>{item.label}</a></li>)}</ul><div className="nav-actions"><a className="nav-search" href="/sok/" aria-label="Sök på webbplatsen"><i className="ph ph-magnifying-glass" aria-hidden="true"/></a><a className="nav-contact" href="/kontakt/"><i className="ph ph-envelope-simple" aria-hidden="true"/><span>Kontakta styrelsen</span></a><button className="nav-toggle" type="button" aria-expanded={open} aria-controls="primary-menu" onClick={()=>setOpen(!open)}><i className={`ph ${open?'ph-x':'ph-list'}`} aria-hidden="true"/><span>{open?'Stäng':'Meny'}</span></button></div><div className="nav-menu" id="primary-menu" hidden={!open}><div className="nav-menu-inner container"><p className="nav-menu-label">Gå direkt till</p><ul className="nav-links">{items.map(item=><li key={item.id??item.href}><a href={item.href} onClick={()=>setOpen(false)}>{item.label}</a></li>)}</ul></div></div></nav></header>;
+}

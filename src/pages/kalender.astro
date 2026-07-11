@@ -3,6 +3,9 @@ import Layout from '../components/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import Section from '../components/Section.astro';
 import { calendarEvents } from '../data/calendar';
+import { getPublicSupabaseConfig } from '../lib/supabase/config';
+const supabaseConfig = getPublicSupabaseConfig();
+const icsUrl = supabaseConfig ? `${supabaseConfig.url}/functions/v1/calendar-ics` : '/kalender.ics';
 
 const now = new Date();
 const today = now.toISOString().slice(0, 10);
@@ -77,7 +80,7 @@ const upcomingEvents = calendarEvents
           )
         }
 
-        <a class="button button-secondary calendar-subscribe" href="/kalender.ics">
+        <a class="button button-secondary calendar-subscribe" href={icsUrl}>
           <i class="ph ph-download-simple" aria-hidden="true"></i>
           Hämta kalenderfil
         </a>

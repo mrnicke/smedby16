@@ -2,8 +2,12 @@
 import Navigation from './Navigation.astro';
 import Footer from './Footer.astro';
 import { siteConfig } from '../config/site';
+import LiveCmsPage from './cms/LiveCmsPage';
+import { pageKeyFromPath } from '../lib/cms/schema';
+import { getPublishedPageSnapshot, getPublicCollectionsSnapshot } from '../lib/supabase/snapshot';
 import '@phosphor-icons/web/regular';
 import '../styles/global.css';
+import '../styles/cms.css';
 
 type Props = {
   title?: string;
@@ -14,22 +18,33 @@ const {
   title = siteConfig.title,
   description = siteConfig.description,
 } = Astro.props;
+const pageKey = pageKeyFromPath(Astro.url.pathname);
+const cmsPage = pageKey ? await getPublishedPageSnapshot(pageKey) : null;
+const collections = cmsPage ? await getPublicCollectionsSnapshot() : { news: [], calendar: [], documents: [] };
+const effectiveTitle = cmsPage?.seo_title || (cmsPage ? `${cmsPage.title} | Smedby 1:6` : title);
+const effectiveDescription = cmsPage?.seo_description || description;
 ---
 
 <!doctype html>
 <html lang="sv">
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content={description} />
+    <meta name="description" content={effectiveDescription} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
-    <title>{title}</title>
+    <meta property="og:title" content={effectiveTitle} />
+    <meta property="og:description" content={effectiveDescription} />
+    <meta property="og:type" content="website" />
+    <title>{effectiveTitle}</title>
   </head>
   <body>
     <a class="skip-link" href="#main">Hoppa till innehåll</a>
     <Navigation currentPath={Astro.url.pathname} />
     <main id="main">
-      <slot />
+      {pageKey && <LiveCmsPage pageKey={pageKey} initialPage={cmsPage} initialCollections={collections} client:load />}
+      <div class:list={['static-page', cmsPage && 'is-cms-replaced']} data-static-page>
+        <slot />
+      </div>
     </main>
     <Footer />
   </body>

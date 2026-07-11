@@ -1,6 +1,6 @@
 # Smedby 1:6
 
-Statisk webbplats för Samfällighetsföreningen Smedby 1:6. Fas 1 innehåller publika informationssidor, nyheter, trafikregler, dokumentlänkar och statiska kontakt-/medlemssidor.
+Astro-webbplats för Samfällighetsföreningen Smedby 1:6 med statisk fallback, Supabase CMS och ett inbjudningsskyddat adminsystem.
 
 ## Installera
 
@@ -22,7 +22,17 @@ npm run build
 
 Färdiga filer hamnar i `dist/`.
 
-## Manuell uppladdning
+## Admin och Supabase
+
+1. Kopiera `.env.example` till `.env` och fyll endast i Supabase Project URL och publishable key.
+2. Kör `npm run dev` och öppna `/admin/`.
+3. Databas, RLS, Storage och Edge Functions finns under `supabase/` och ska appliceras via CLI, inte genom manuell SQL-redigering.
+
+Om publik Supabase-konfiguration saknas fortsätter den nuvarande statiska webbplatsen att fungera. Produktionsworkflowen använder `CMS_REQUIRED=true` och stoppar publiceringen om snapshoten inte kan hämtas.
+
+Fullständig och säker driftsättningsordning finns i [`docs/deployment.md`](docs/deployment.md).
+
+## Lokal statisk fallback
 
 1. Kör `npm run build`.
 2. Ladda upp innehållet i `dist/` till webbhotellets publika katalog.
@@ -35,17 +45,14 @@ Stadgarna ska ligga här:
 
 Om filen saknas efter installation behöver PDF:en kopieras manuellt till sökvägen ovan.
 
-## Kända begränsningar i fas 1
+## Avgränsningar
 
-- Ingen inloggning.
 - Inget riktigt kontaktformulär.
-- Ingen databas.
-- Dokument kan behöva kompletteras manuellt vid behov.
+- Ingen publik registrering eller medlemsportal.
+- Dokument måste laddas upp till Supabase Storage innan de publiceras från CMS:et.
 
-## Förslag för fas 2
+## Senare faser
 
-- Enkel admin/nyhetshantering.
 - Kontaktformulär.
 - Medlemssidor.
-- Dokumentarkiv.
-- Eventuell MySQL-backend.
+- Flera adminroller, MFA och schemalagd publicering.

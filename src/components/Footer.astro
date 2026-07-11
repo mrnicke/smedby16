@@ -1,23 +1,11 @@
 ---
 import { navigationItems } from '../data/navigation';
 import { siteConfig } from '../config/site';
+import { getChromeSnapshot } from '../lib/supabase/snapshot';
+import CmsFooter from './cms/CmsFooter';
+const snapshot=await getChromeSnapshot();
+const items=snapshot?.navigation??navigationItems.map((item,index)=>({...item,id:`fallback-${index}`}));
+const siteName=snapshot?.settings?.site_name??siteConfig.name;
+const text=snapshot?.settings?.footer_text??'Information för boende i Samfällighetsföreningen Smedby 1:6.';
 ---
-
-<footer class="site-footer">
-  <div class="container footer-grid">
-    <div>
-      <a class="footer-brand" href="/">
-        <span class="brand-mark" aria-hidden="true">S</span>
-        <span>{siteConfig.name}</span>
-      </a>
-      <p>
-        Information för boende i Samfällighetsföreningen Smedby 1:6.
-      </p>
-    </div>
-    <nav aria-label="Sidfot">
-      <ul class="footer-links">
-        {navigationItems.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
-      </ul>
-    </nav>
-  </div>
-</footer>
+<CmsFooter initialItems={items} siteName={siteName} initialText={text} client:load />
