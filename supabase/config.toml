@@ -18,18 +18,30 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://127.0.0.1:4321/admin/"
-additional_redirect_urls = ["http://localhost:4321/admin/", "http://127.0.0.1:4321/admin/"]
+site_url = "https://www.smedby1-6.se/admin/"
+additional_redirect_urls = ["https://www.smedby1-6.se/admin/", "https://smedby1-6.se/admin/", "http://localhost:4321/admin/", "http://127.0.0.1:4321/admin/"]
 enable_signup = false
 
 [auth.email]
-enable_signup = false
+# Keep the email provider enabled for invited/admin-created accounts.
+# Public signup remains disabled by auth.enable_signup above.
+enable_signup = true
 double_confirm_changes = true
 enable_confirmations = true
+max_frequency = "1m"
+otp_length = 8
+otp_expiry = 3600
+
+[auth.mfa.totp]
+enroll_enabled = false
+verify_enabled = false
 
 [storage]
 enabled = true
 file_size_limit = "25MiB"
+
+[storage.vector]
+enabled = false
 
 [edge_runtime]
 enabled = true

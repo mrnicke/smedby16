@@ -4,7 +4,7 @@
 .cms-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .42; }
 .cms-hero > .container { position: relative; padding-block: clamp(4rem, 10vw, 8rem) 3rem; }
 .cms-hero h1 { max-width: 16ch; color: inherit; }
-.cms-hero p { max-width: 58ch; font-size: 1.15rem; }
+.cms-hero p { max-width: 58ch; color: inherit; font-size: 1.15rem; }
 .cms-section { padding-block: clamp(2.5rem, 6vw, 5rem); }
 .cms-section:nth-child(even) { background: #f5f6f2; }
 .cms-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
@@ -15,8 +15,17 @@
 .cms-image-text, .cms-area-guide { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; align-items: center; }
 .cms-image-text.image-left img { order: -1; }
 .cms-image-text img, .cms-area-guide img { width: 100%; border-radius: 1rem; }
+.cms-area-guide a { display: inline-block; margin: .4rem .8rem .2rem 0; }
 .cms-link-list { display: grid; gap: .75rem; padding: 0; list-style: none; }
 .cms-link-list a { display: block; padding: 1rem; border: 1px solid #d8ded8; border-radius: .65rem; }
 .cms-renderer details { border-bottom: 1px solid #d8ded8; padding: 1rem 0; }
 .cms-renderer summary { cursor: pointer; font-weight: 700; }
+.cms-search-form { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(10rem, .45fr) auto; gap: .75rem; align-items: end; max-width: 56rem; }
+.cms-search-form label { display: grid; gap: .35rem; font-weight: 700; }
+.cms-search-form input, .cms-search-form select { width: 100%; box-sizing: border-box; padding: .8rem; border: 1px solid #b9c3bd; border-radius: .5rem; background: white; font: inherit; }
+.cms-search-status { margin-block: 1rem; color: #52635b; }
+.cms-search-results { display: grid; gap: .75rem; padding: 0; list-style: none; }
+.cms-search-results li { padding: 1.2rem; border: 1px solid #d8ded8; border-radius: .8rem; background: white; }
+.cms-search-results h3, .cms-search-results p { margin-block: .25rem; }
 @media (max-width: 720px) { .cms-image-text, .cms-area-guide { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .cms-search-form { grid-template-columns: 1fr; } }

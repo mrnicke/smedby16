@@ -18,6 +18,10 @@
 .admin-split > aside > button { display: grid; width: 100%; margin-bottom: .3rem; padding: .7rem; border: 0; border-radius: .45rem; background: transparent; text-align: left; }
 .admin-split > aside > button.is-active, .admin-split > aside > button:hover { background: #e8efeb; }
 .admin-split > aside small { opacity: .7; }
+.resource-list-heading { display: grid; gap: .7rem; margin-bottom: 1rem; }
+.resource-list-heading h2 { margin: 0; }
+.resource-editor > aside > button span { font-weight: 700; }
+.empty-note { padding: .75rem; color: #617069; }
 .admin-split > section { min-width: 0; padding: 2rem; }
 .admin-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
 .admin-heading h1 { margin: 0; }
@@ -26,14 +30,29 @@
 .check { display: flex!important; flex-direction: row; align-items: center; }
 .check input { width: auto; }
 .block-editor { display: grid; grid-template-columns: minmax(20rem,1fr) minmax(20rem,1fr); gap: 1rem; margin-top: 1rem; align-items: start; }
-.block-panel { margin-bottom: 1rem; padding: 1rem; border: 1px solid #ced8d1; border-radius: .75rem; background: white; }
+.block-editor-heading, .preview-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; padding: 1rem; }
+.block-editor-heading h2, .block-editor-heading p, .preview-heading h2, .preview-heading p { margin: 0; }
+.block-editor-heading span { flex: none; padding: .3rem .55rem; border-radius: 999px; background: #e2eee8; font-size: .8rem; font-weight: 750; }
+.block-panel { margin-bottom: 1rem; border: 1px solid #ced8d1; border-radius: .75rem; background: white; overflow: hidden; }
+.block-panel > summary { display: flex; align-items: center; gap: .7rem; padding: .9rem 1rem; cursor: pointer; font-weight: 800; list-style-position: inside; }
+.block-panel > summary small { margin-left: auto; color: #617069; font-family: ui-monospace, monospace; font-weight: 500; }
+.block-panel-body { display: grid; gap: .85rem; padding: 0 1rem 1rem; border-top: 1px solid #e3e9e5; }
 .block-panel label { margin-top: .75rem; }
 .block-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
-.block-actions button, .add-block button, .rich-toolbar button { padding: .4rem .65rem; border: 1px solid #b9c3bd; border-radius: .35rem; background: white; }
+.block-actions { padding-top: .8rem; }
+.block-actions button, .add-block button, .rich-toolbar button, .block-panel-body > button, .nested-fields button { padding: .4rem .65rem; border: 1px solid #b9c3bd; border-radius: .35rem; background: white; }
 .block-actions .danger { margin-left: auto; color: #9e2424; }
-.add-block { display: flex; gap: .5rem; }
+.danger { color: #9e2424; }
+.compact { align-self: end; }
+.add-block { display: flex; align-items: end; gap: .5rem; padding: 1rem; border: 1px dashed #9caea4; border-radius: .75rem; background: #f8faf8; }
+.add-block label { flex: 1; }
+.nested-fields { display: grid; gap: .75rem; padding: .8rem; border: 1px solid #dbe3de; border-radius: .6rem; }
+.nested-fields legend { padding-inline: .4rem; font-weight: 750; }
+.repeater-list { display: grid; gap: .75rem; }
+.repeater-row { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: .65rem; align-items: end; padding: .7rem; border: 1px solid #e0e6e2; border-radius: .55rem; }
+.compact-grid { padding: 0; background: transparent; }
 .live-preview { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; border: 1px solid #ced8d1; border-radius: .75rem; background: white; }
-.live-preview > h2 { padding: 1rem; border-bottom: 1px solid #ced8d1; }
+.preview-heading { border-bottom: 1px solid #ced8d1; }
 .live-preview .container { width: auto; padding-inline: 1rem; }
 .live-preview .cms-hero { min-height: 20rem; }
 .rich-editor { border: 1px solid #b9c3bd; border-radius: .5rem; overflow: hidden; }
@@ -52,4 +71,4 @@
 .revision-list article { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border-bottom: 1px solid #d5ddd7; background: white; }
 .revision-list article div { display: grid; }
 .field-error { color: #a12222; }
-@media(max-width:900px){.admin-split{grid-template-columns:1fr}.admin-split>aside{display:flex;overflow-x:auto;border-right:0}.admin-split>aside>button{min-width:10rem}.block-editor{grid-template-columns:1fr}.live-preview{position:static}.upload-form,.field-grid,.nav-edit{grid-template-columns:1fr}.field-grid .span-two{grid-column:auto}.admin-shell>header span{display:none}}
+@media(max-width:900px){.admin-split{grid-template-columns:1fr}.admin-split>aside{display:flex;overflow-x:auto;border-right:0}.admin-split>aside>button{min-width:10rem}.block-editor{grid-template-columns:1fr}.live-preview{position:static}.upload-form,.field-grid,.nav-edit,.repeater-row{grid-template-columns:1fr}.field-grid .span-two{grid-column:auto}.admin-shell>header span{display:none}}

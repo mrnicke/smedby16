@@ -10,6 +10,7 @@
     "check": "astro check",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e:local": "node scripts/e2e-local-admin.mjs",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:test": "supabase test db",

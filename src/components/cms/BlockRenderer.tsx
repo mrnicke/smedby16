@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import type { ContentBlock } from '../../lib/cms/schema';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 import type { PublicCollections } from '../../lib/supabase/snapshot';
+import SearchExperience from './SearchExperience';
 
 type Props = { blocks: ContentBlock[]; preview?: boolean; collections?: PublicCollections };
 
@@ -29,16 +30,19 @@ function renderRichNode(node: any, key: number | string): ReactNode {
   return tags[node.type]?.(children) ?? <Fragment key={key}>{children}</Fragment>;
 }
 
-function DynamicFeed({ kind, heading, limit = 8, initialItems = [] }: { kind: 'news' | 'calendar' | 'documents'; heading: string; limit?: number; initialItems?: any[] }) {
-  const [items, setItems] = useState<any[]>(initialItems.slice(0, limit));
+function DynamicFeed({ kind, heading, limit = 8, category, initialItems = [] }: { kind: 'news' | 'calendar' | 'documents'; heading: string; limit?: number; category?: string; initialItems?: any[] }) {
+  const filterItems = (values: any[]) => (category ? values.filter((item) => item.category === category) : values).slice(0, limit);
+  const [items, setItems] = useState<any[]>(filterItems(initialItems));
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   useEffect(() => {
     const client = getSupabaseBrowserClient();
     if (!client) return;
     const table = kind === 'news' ? 'public_news_posts' : kind === 'calendar' ? 'public_calendar_events' : 'public_documents';
     const order = kind === 'news' ? 'published_at' : kind === 'calendar' ? 'starts_at' : 'sort_order';
-    client.from(table).select('*').order(order, { ascending: kind !== 'news' }).limit(limit).then(({ data }) => setItems((data ?? []).map((item: any) => kind === 'documents' && item.storage_path ? { ...item, public_url: client.storage.from('public-media').getPublicUrl(item.storage_path).data.publicUrl } : item)));
-  }, [kind, limit]);
+    let query = client.from(table).select('*').order(order, { ascending: kind !== 'news' });
+    if (category && kind === 'documents') query = query.eq('category', category);
+    query.limit(limit).then(({ data }) => setItems((data ?? []).map((item: any) => kind === 'documents' && item.storage_path ? { ...item, public_url: client.storage.from('public-media').getPublicUrl(item.storage_path).data.publicUrl } : item)));
+  }, [kind, limit, category]);
   useEffect(() => { if (kind === 'news') setSelectedSlug(new URLSearchParams(window.location.search).get('nyhet')); }, [kind]);
   const empty = kind === 'calendar' ? 'Inga kommande datum är publicerade.' : kind === 'news' ? 'Inga nyheter är publicerade.' : 'Inga dokument är publicerade.';
   const selected = selectedSlug ? items.find((item) => item.slug === selectedSlug) : null;
@@ -59,8 +63,8 @@ export default function BlockRenderer({ blocks, preview = false, collections }: 
       if (block.type === 'faq') return <section className="cms-section" key={key}><div className="container">{block.heading && <h2>{block.heading}</h2>}{block.items.map((item) => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div></section>;
       if (block.type === 'news_feed') return <DynamicFeed key={key} kind="news" heading={block.heading} limit={block.limit} initialItems={collections?.news} />;
       if (block.type === 'calendar_feed') return <DynamicFeed key={key} kind="calendar" heading={block.heading} limit={block.limit} initialItems={collections?.calendar} />;
-      if (block.type === 'document_list') return <DynamicFeed key={key} kind="documents" heading={block.heading} initialItems={collections?.documents} />;
-      if (block.type === 'search_teaser') return <section className="cms-section" key={key}><div className="container"><h2>{block.heading}</h2><p>{block.text}</p><form action="/sok/" method="get" className="home-search"><input name="q" type="search" minLength={2} required /><button type="submit">Sök</button></form></div></section>;
+      if (block.type === 'document_list') return <DynamicFeed key={key} kind="documents" heading={block.heading} category={block.category} initialItems={collections?.documents} />;
+      if (block.type === 'search_teaser') return <SearchExperience key={key} heading={block.heading} text={block.text} preview={preview} />;
       return null;
     })}
   </div>;

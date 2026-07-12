@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ContentBlock } from '../../lib/cms/schema';
-import { contentBlockSchema, pageTemplateRules } from '../../lib/cms/schema';
+import { pageTemplateRules } from '../../lib/cms/schema';
 import RichTextEditor from './RichTextEditor';
 import BlockRenderer from '../cms/BlockRenderer';
 
@@ -9,7 +9,7 @@ const defaults: Record<ContentBlock['type'], ContentBlock> = {
   rich_text: { type: 'rich_text', document: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Skriv text här.' }] }] } },
   card_grid: { type: 'card_grid', cards: [{ title: 'Kort', text: 'Beskrivning' }] },
   notice: { type: 'notice', heading: 'Information', text: '', tone: 'info' },
-  image_text: { type: 'image_text', heading: 'Rubrik', text: '', image: { src: '/images/miljo-gronyta.webp', alt: '' }, imagePosition: 'right' },
+  image_text: { type: 'image_text', heading: 'Rubrik', text: '', image: { src: '/images/miljo-gronyta.webp', alt: 'Gemensam grönyta i området' }, imagePosition: 'right' },
   link_list: { type: 'link_list', links: [{ label: 'Länk', href: '/' }] },
   area_guide: { type: 'area_guide', heading: 'Områdesguide', text: '', links: [] },
   faq: { type: 'faq', items: [{ question: 'Fråga', answer: 'Svar' }] },
@@ -19,35 +19,108 @@ const defaults: Record<ContentBlock['type'], ContentBlock> = {
   search_teaser: { type: 'search_teaser', heading: 'Sök på webbplatsen', text: 'Hitta regler, dokument och information.' },
 };
 
-function JsonFields({ block, onChange }: { block: ContentBlock; onChange: (block: ContentBlock) => void }) {
-  const [text, setText] = useState(JSON.stringify(block, null, 2));
-  const [error, setError] = useState('');
-  return <label>Blockets innehåll
-    <textarea rows={10} value={text} onChange={(event) => {
-      setText(event.target.value);
-      try { const parsed = contentBlockSchema.parse(JSON.parse(event.target.value)); onChange(parsed); setError(''); }
-      catch { setError('Kontrollera blockets fält och format.'); }
-    }} />
-    {error && <span className="field-error">{error}</span>}
-  </label>;
+const labels: Record<ContentBlock['type'], string> = {
+  hero: 'Sidhuvud', rich_text: 'Text', card_grid: 'Kort', notice: 'Informationsruta', image_text: 'Bild och text',
+  link_list: 'Länklista', area_guide: 'Områdesguide', faq: 'Vanliga frågor', news_feed: 'Nyhetsflöde',
+  calendar_feed: 'Kalenderflöde', document_list: 'Dokumentlista', search_teaser: 'Sökfält',
+};
+
+type LinkValue = { label: string; href: string };
+type ImageValue = { src: string; alt: string };
+
+function LinkEditor({ value, onChange, onRemove }: { value: LinkValue; onChange: (value: LinkValue) => void; onRemove?: () => void }) {
+  return <div className="repeater-row">
+    <label>Etikett<input value={value.label} onChange={(event) => onChange({ ...value, label: event.target.value })} /></label>
+    <label>Länk<input value={value.href} onChange={(event) => onChange({ ...value, href: event.target.value })} placeholder="/sida/ eller https://…" /></label>
+    {onRemove && <button type="button" className="danger compact" onClick={onRemove}>Ta bort</button>}
+  </div>;
+}
+
+function ImageEditor({ value, onChange }: { value: ImageValue; onChange: (value: ImageValue) => void }) {
+  return <div className="field-grid compact-grid">
+    <label>Bildadress<input value={value.src} onChange={(event) => onChange({ ...value, src: event.target.value })} placeholder="/images/… eller https://…" /></label>
+    <label>Alt-text<input value={value.alt} onChange={(event) => onChange({ ...value, alt: event.target.value })} /></label>
+  </div>;
+}
+
+function BlockFields({ block, onChange }: { block: ContentBlock; onChange: (block: ContentBlock) => void }) {
+  if (block.type === 'hero') return <>
+    <label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label>
+    <label>Ingress<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label>
+    {block.image ? <fieldset className="nested-fields"><legend>Bakgrundsbild</legend><ImageEditor value={block.image} onChange={(image) => onChange({ ...block, image })} /><button type="button" className="text-button" onClick={() => { const { image: _image, ...rest } = block; onChange(rest); }}>Ta bort bild</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, image: { src: '/images/miljo-gronyta.webp', alt: 'Miljöbild från området' } })}>Lägg till bild</button>}
+    {block.action ? <fieldset className="nested-fields"><legend>Knapp</legend><LinkEditor value={block.action} onChange={(action) => onChange({ ...block, action })} /><button type="button" className="text-button" onClick={() => { const { action: _action, ...rest } = block; onChange(rest); }}>Ta bort knapp</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, action: { label: 'Läs mer', href: '/' } })}>Lägg till knapp</button>}
+  </>;
+
+  if (block.type === 'rich_text') return <>
+    <label>Avsnittsrubrik (valfri)<input value={block.heading ?? ''} onChange={(event) => onChange({ ...block, heading: event.target.value || undefined })} /></label>
+    <RichTextEditor value={block.document} onChange={(document) => onChange({ ...block, document })} />
+  </>;
+
+  if (block.type === 'notice') return <>
+    <label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label>
+    <label>Text<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label>
+    <label>Ton<select value={block.tone} onChange={(event) => onChange({ ...block, tone: event.target.value as typeof block.tone })}><option value="info">Information</option><option value="warning">Varning</option><option value="success">Positiv</option></select></label>
+  </>;
+
+  if (block.type === 'image_text') return <>
+    <label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label>
+    <label>Text<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label>
+    <ImageEditor value={block.image} onChange={(image) => onChange({ ...block, image })} />
+    <label>Bildplacering<select value={block.imagePosition} onChange={(event) => onChange({ ...block, imagePosition: event.target.value as 'left' | 'right' })}><option value="left">Vänster</option><option value="right">Höger</option></select></label>
+  </>;
+
+  if (block.type === 'card_grid') return <>
+    <label>Avsnittsrubrik (valfri)<input value={block.heading ?? ''} onChange={(event) => onChange({ ...block, heading: event.target.value || undefined })} /></label>
+    <div className="repeater-list">{block.cards.map((card, index) => <fieldset className="nested-fields" key={index}>
+      <legend>Kort {index + 1}</legend>
+      <label>Rubrik<input value={card.title} onChange={(event) => onChange({ ...block, cards: block.cards.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item) })} /></label>
+      <label>Text<textarea value={card.text} onChange={(event) => onChange({ ...block, cards: block.cards.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) })} /></label>
+      {card.link ? <LinkEditor value={card.link} onChange={(link) => onChange({ ...block, cards: block.cards.map((item, itemIndex) => itemIndex === index ? { ...item, link } : item) })} onRemove={() => onChange({ ...block, cards: block.cards.map((item, itemIndex) => { if (itemIndex !== index) return item; const { link: _link, ...rest } = item; return rest; }) })} /> : <button type="button" onClick={() => onChange({ ...block, cards: block.cards.map((item, itemIndex) => itemIndex === index ? { ...item, link: { label: 'Läs mer', href: '/' } } : item) })}>Lägg till länk</button>}
+      <button type="button" className="danger compact" disabled={block.cards.length === 1} onClick={() => onChange({ ...block, cards: block.cards.filter((_, itemIndex) => itemIndex !== index) })}>Ta bort kort</button>
+    </fieldset>)}</div>
+    <button type="button" disabled={block.cards.length >= 12} onClick={() => onChange({ ...block, cards: [...block.cards, { title: 'Nytt kort', text: 'Beskrivning' }] })}>Lägg till kort</button>
+  </>;
+
+  if (block.type === 'link_list') return <>
+    <label>Avsnittsrubrik (valfri)<input value={block.heading ?? ''} onChange={(event) => onChange({ ...block, heading: event.target.value || undefined })} /></label>
+    <div className="repeater-list">{block.links.map((link, index) => <LinkEditor key={index} value={link} onChange={(value) => onChange({ ...block, links: block.links.map((item, itemIndex) => itemIndex === index ? value : item) })} onRemove={block.links.length > 1 ? () => onChange({ ...block, links: block.links.filter((_, itemIndex) => itemIndex !== index) }) : undefined} />)}</div>
+    <button type="button" disabled={block.links.length >= 30} onClick={() => onChange({ ...block, links: [...block.links, { label: 'Ny länk', href: '/' }] })}>Lägg till länk</button>
+  </>;
+
+  if (block.type === 'area_guide') return <>
+    <label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label>
+    <label>Text<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label>
+    {block.image ? <fieldset className="nested-fields"><legend>Bild</legend><ImageEditor value={block.image} onChange={(image) => onChange({ ...block, image })} /><button type="button" className="text-button" onClick={() => { const { image: _image, ...rest } = block; onChange(rest); }}>Ta bort bild</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, image: { src: '/images/omradeskarta.webp', alt: 'Karta över Smedby 1:6' } })}>Lägg till bild</button>}
+    <div className="repeater-list">{block.links.map((link, index) => <LinkEditor key={index} value={link} onChange={(value) => onChange({ ...block, links: block.links.map((item, itemIndex) => itemIndex === index ? value : item) })} onRemove={() => onChange({ ...block, links: block.links.filter((_, itemIndex) => itemIndex !== index) })} />)}</div>
+    <button type="button" disabled={block.links.length >= 12} onClick={() => onChange({ ...block, links: [...block.links, { label: 'Ny plats', href: '/kontakt/' }] })}>Lägg till länk</button>
+  </>;
+
+  if (block.type === 'faq') return <>
+    <label>Avsnittsrubrik (valfri)<input value={block.heading ?? ''} onChange={(event) => onChange({ ...block, heading: event.target.value || undefined })} /></label>
+    <div className="repeater-list">{block.items.map((item, index) => <fieldset className="nested-fields" key={index}><legend>Fråga {index + 1}</legend><label>Fråga<input value={item.question} onChange={(event) => onChange({ ...block, items: block.items.map((value, itemIndex) => itemIndex === index ? { ...value, question: event.target.value } : value) })} /></label><label>Svar<textarea value={item.answer} onChange={(event) => onChange({ ...block, items: block.items.map((value, itemIndex) => itemIndex === index ? { ...value, answer: event.target.value } : value) })} /></label><button type="button" className="danger compact" disabled={block.items.length === 1} onClick={() => onChange({ ...block, items: block.items.filter((_, itemIndex) => itemIndex !== index) })}>Ta bort fråga</button></fieldset>)}</div>
+    <button type="button" disabled={block.items.length >= 30} onClick={() => onChange({ ...block, items: [...block.items, { question: 'Ny fråga', answer: 'Svar' }] })}>Lägg till fråga</button>
+  </>;
+
+  if (block.type === 'news_feed' || block.type === 'calendar_feed') return <div className="field-grid compact-grid"><label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label><label>Antal<input type="number" min={1} max={12} value={block.limit} onChange={(event) => onChange({ ...block, limit: Number(event.target.value) })} /></label></div>;
+  if (block.type === 'document_list') return <div className="field-grid compact-grid"><label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label><label>Kategori (valfri)<input value={block.category ?? ''} onChange={(event) => onChange({ ...block, category: event.target.value || undefined })} /></label></div>;
+  return <><label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label><label>Hjälptext<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label></>;
 }
 
 export default function BlockEditor({ template, blocks, onChange }: { template: keyof typeof pageTemplateRules; blocks: ContentBlock[]; onChange: (blocks: ContentBlock[]) => void }) {
-  const [addType, setAddType] = useState<ContentBlock['type']>(pageTemplateRules[template].allowed[0]);
+  const allowed = pageTemplateRules[template].allowed;
+  const [addType, setAddType] = useState<ContentBlock['type']>(allowed[0]);
+  useEffect(() => { if (!allowed.includes(addType)) setAddType(allowed[0]); }, [template, addType, allowed]);
   const update = (index: number, block: ContentBlock) => onChange(blocks.map((item, itemIndex) => itemIndex === index ? block : item));
   const move = (from: number, to: number) => { const copy = [...blocks]; const [item] = copy.splice(from, 1); copy.splice(to, 0, item); onChange(copy); };
   return <div className="block-editor">
     <div className="block-editor-list">
-      {blocks.map((block, index) => <fieldset className="block-panel" key={`${block.type}-${index}`}>
-        <legend>{index + 1}. {block.type}</legend>
-        <div className="block-actions"><button type="button" disabled={index === 0} onClick={() => move(index, index - 1)}>Flytta upp</button><button type="button" disabled={index === blocks.length - 1} onClick={() => move(index, index + 1)}>Flytta ned</button><button type="button" className="danger" onClick={() => onChange(blocks.filter((_, itemIndex) => itemIndex !== index))}>Ta bort</button></div>
-        {block.type === 'hero' && <><label>Rubrik<input value={block.heading} onChange={(e) => update(index, { ...block, heading: e.target.value })} /></label><label>Ingress<textarea value={block.text} onChange={(e) => update(index, { ...block, text: e.target.value })} /></label></>}
-        {block.type === 'rich_text' && <RichTextEditor value={block.document} onChange={(document) => update(index, { ...block, document })} />}
-        {block.type === 'notice' && <><label>Rubrik<input value={block.heading} onChange={(e) => update(index, { ...block, heading: e.target.value })} /></label><label>Text<textarea value={block.text} onChange={(e) => update(index, { ...block, text: e.target.value })} /></label><label>Ton<select value={block.tone} onChange={(e) => update(index, { ...block, tone: e.target.value as any })}><option value="info">Information</option><option value="warning">Varning</option><option value="success">Klart</option></select></label></>}
-        {!['hero','rich_text','notice'].includes(block.type) && <JsonFields block={block} onChange={(value) => update(index, value)} />}
-      </fieldset>)}
-      <div className="add-block"><select value={addType} onChange={(e) => setAddType(e.target.value as ContentBlock['type'])}>{pageTemplateRules[template].allowed.map((type) => <option key={type}>{type}</option>)}</select><button type="button" onClick={() => onChange([...blocks, structuredClone(defaults[addType])])}>Lägg till block</button></div>
+      <div className="block-editor-heading"><div><h2>Sidblock</h2><p>Flytta innehållet uppåt eller nedåt i den ordning det ska visas.</p></div><span>{blocks.length} block</span></div>
+      {blocks.map((block, index) => <details className="block-panel" open key={`${block.type}-${index}`}>
+        <summary><span>{index + 1}. {labels[block.type]}</span><small>{block.type}</small></summary>
+        <div className="block-panel-body"><div className="block-actions"><button type="button" disabled={index === 0} onClick={() => move(index, index - 1)}>Flytta upp</button><button type="button" disabled={index === blocks.length - 1} onClick={() => move(index, index + 1)}>Flytta ned</button><button type="button" onClick={() => onChange([...blocks.slice(0, index + 1), structuredClone(block), ...blocks.slice(index + 1)])}>Duplicera</button><button type="button" className="danger" onClick={() => onChange(blocks.filter((_, itemIndex) => itemIndex !== index))}>Ta bort</button></div><BlockFields block={block} onChange={(value) => update(index, value)} /></div>
+      </details>)}
+      <div className="add-block"><label>Ny blocktyp<select value={addType} onChange={(event) => setAddType(event.target.value as ContentBlock['type'])}>{allowed.map((type) => <option value={type} key={type}>{labels[type]}</option>)}</select></label><button type="button" className="button button-secondary" onClick={() => onChange([...blocks, structuredClone(defaults[addType])])}>Lägg till block</button></div>
     </div>
-    <aside className="live-preview"><h2>Förhandsvisning</h2><BlockRenderer blocks={blocks} preview /></aside>
+    <aside className="live-preview"><div className="preview-heading"><h2>Förhandsvisning</h2><p>Uppdateras medan du skriver.</p></div><BlockRenderer blocks={blocks} preview /></aside>
   </div>;
 }
