@@ -140,8 +140,8 @@
 .admin-body button:disabled { cursor: not-allowed; opacity: .48; }
 .button, .admin-actions button { display: inline-flex; min-height: 2.65rem; align-items: center; justify-content: center; gap: .45rem; padding: .6rem .85rem; border: 1px solid #b8c4be; border-radius: .5rem; background: white; color: var(--ink); font-weight: 750; text-decoration: none; }
 .button:hover:not(:disabled), .admin-actions button:hover:not(:disabled) { border-color: #789287; background: #f6f9f7; }
-.button-primary, .admin-actions .button-primary { border-color: var(--clay); background: var(--clay); color: white; }
-.button-primary:hover:not(:disabled), .admin-actions .button-primary:hover:not(:disabled) { border-color: var(--clay-dark); background: var(--clay-dark); }
+.admin-body .button-primary { border-color: var(--clay); background: var(--clay); color: white; }
+.admin-body .button-primary:hover:not(:disabled) { border-color: var(--clay-dark); background: var(--clay-dark); }
 .button-secondary { background: white; }
 .button-danger, .admin-actions .button-danger { border-color: #d8aaa3; background: #fff7f5; color: #912d1e; }
 .icon-button { display: inline-grid!important; width: 2.65rem; min-width: 2.65rem; padding: 0!important; place-items: center; }
