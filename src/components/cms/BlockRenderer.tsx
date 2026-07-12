@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import type { ContentBlock } from '../../lib/cms/schema';
+import { resolveCmsHref } from '../../lib/cms/links';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
+import { getPublicSupabaseConfig } from '../../lib/supabase/config';
 import type { PublicCollections } from '../../lib/supabase/snapshot';
 import SearchExperience from './SearchExperience';
 
@@ -50,16 +52,18 @@ function DynamicFeed({ kind, heading, limit = 8, category, initialItems = [] }: 
 }
 
 export default function BlockRenderer({ blocks, preview = false, collections }: Props) {
+  const supabaseUrl = getPublicSupabaseConfig()?.url;
+  const hrefFor = (href: string) => resolveCmsHref(href, supabaseUrl);
   return <div className={preview ? 'cms-renderer is-preview' : 'cms-renderer'}>
     {blocks.map((block, index) => {
       const key = `${block.type}-${index}`;
-      if (block.type === 'hero') return <section className="cms-hero" key={key}>{block.image && <img src={block.image.src} alt={block.image.alt} />}<div className="container"><h1>{block.heading}</h1>{block.text && <p>{block.text}</p>}{block.action && <a className="button button-primary" href={block.action.href}>{block.action.label}</a>}</div></section>;
+      if (block.type === 'hero') return <section className="cms-hero" key={key}>{block.image && <img src={block.image.src} alt={block.image.alt} />}<div className="container"><h1>{block.heading}</h1>{block.text && <p>{block.text}</p>}{block.action && <a className="button button-primary" href={hrefFor(block.action.href)}>{block.action.label}</a>}</div></section>;
       if (block.type === 'rich_text') return <section className="cms-section" key={key}><div className="container article-body">{block.heading && <h2>{block.heading}</h2>}{block.document.content.map((node, nodeIndex) => renderRichNode(node, nodeIndex))}</div></section>;
-      if (block.type === 'card_grid') return <section className="cms-section" key={key}><div className="container">{block.heading && <h2>{block.heading}</h2>}<div className="cms-card-grid">{block.cards.map((card) => <article className="cms-card" key={card.title}><h3>{card.title}</h3><p>{card.text}</p>{card.link && <a href={card.link.href}>{card.link.label}</a>}</article>)}</div></div></section>;
+      if (block.type === 'card_grid') return <section className="cms-section" key={key}><div className="container">{block.heading && <h2>{block.heading}</h2>}<div className="cms-card-grid">{block.cards.map((card) => <article className="cms-card" key={card.title}><h3>{card.title}</h3><p>{card.text}</p>{card.link && <a href={hrefFor(card.link.href)}>{card.link.label}</a>}</article>)}</div></div></section>;
       if (block.type === 'notice') return <section className="cms-section" key={key}><div className={`container cms-notice tone-${block.tone}`}><h2>{block.heading}</h2><p>{block.text}</p></div></section>;
       if (block.type === 'image_text') return <section className="cms-section" key={key}><div className={`container cms-image-text image-${block.imagePosition}`}><img src={block.image.src} alt={block.image.alt} /><div><h2>{block.heading}</h2><p>{block.text}</p></div></div></section>;
-      if (block.type === 'link_list') return <section className="cms-section" key={key}><div className="container">{block.heading && <h2>{block.heading}</h2>}<ul className="cms-link-list">{block.links.map((link) => <li key={link.href}><a href={link.href}>{link.label}</a></li>)}</ul></div></section>;
-      if (block.type === 'area_guide') return <section className="cms-section" key={key}><div className="container cms-area-guide">{block.image && <img src={block.image.src} alt={block.image.alt} />}<div><h2>{block.heading}</h2><p>{block.text}</p>{block.links.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}</div></div></section>;
+      if (block.type === 'link_list') return <section className="cms-section" key={key}><div className="container">{block.heading && <h2>{block.heading}</h2>}<ul className="cms-link-list">{block.links.map((link) => <li key={link.href}><a href={hrefFor(link.href)}>{link.label}</a></li>)}</ul></div></section>;
+      if (block.type === 'area_guide') return <section className="cms-section" key={key}><div className="container cms-area-guide">{block.image && <img src={block.image.src} alt={block.image.alt} />}<div><h2>{block.heading}</h2><p>{block.text}</p>{block.links.map((link) => <a key={link.href} href={hrefFor(link.href)}>{link.label}</a>)}</div></div></section>;
       if (block.type === 'faq') return <section className="cms-section" key={key}><div className="container">{block.heading && <h2>{block.heading}</h2>}{block.items.map((item) => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div></section>;
       if (block.type === 'news_feed') return <DynamicFeed key={key} kind="news" heading={block.heading} limit={block.limit} initialItems={collections?.news} />;
       if (block.type === 'calendar_feed') return <DynamicFeed key={key} kind="calendar" heading={block.heading} limit={block.limit} initialItems={collections?.calendar} />;
