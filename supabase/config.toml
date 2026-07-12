@@ -43,6 +43,12 @@ file_size_limit = "25MiB"
 [storage.vector]
 enabled = false
 
+[functions.calendar-ics]
+verify_jwt = false
+
+[functions.deployment-status]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 policy = "per_worker"

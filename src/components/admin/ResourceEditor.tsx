@@ -20,6 +20,12 @@ async function invokeSave(client: SupabaseClient, entity: ResourceKind, payload:
   return data.data as Resource;
 }
 
+async function invokeManage(client: SupabaseClient, entity: ResourceKind, id: string, action: 'archive'|'restore'|'delete') {
+  const { data, error } = await client.functions.invoke('manage-content', { body: { entity, id, action } });
+  if (error) throw new Error(data?.error ?? error.message);
+  return data.data as Resource;
+}
+
 function localDateTime(value: string | null | undefined) {
   if (!value) return '';
   const date = new Date(value);
@@ -53,7 +59,7 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
   const pdfMedia = useMemo(() => media.filter((asset) => asset.mime_type === 'application/pdf'), [media]);
 
   const save = async () => {
-    if (!selected || saving) return;
+    if (!selected || saving || selected.archived_at) return;
     setSaving(true); setMessage('Kontrollerar och sparar…');
     try {
       if (kind === 'news_posts') blockListSchema.parse(selected.body_blocks);
@@ -68,15 +74,29 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
     } finally { setSaving(false); }
   };
 
+  const manage = async (action: 'archive'|'restore'|'delete') => {
+    if (!selected?.id || saving) return;
+    const prompt = action === 'archive' ? `Arkivera ${selected.title}? Den försvinner från webbplatsen.` : action === 'restore' ? `Återställ ${selected.title} som opublicerad?` : `Ta bort ${selected.title} permanent? Versionshistoriken behålls, men posten kan inte återställas från adminpanelen.`;
+    if (!confirm(prompt)) return;
+    setSaving(true); setMessage(action === 'delete' ? 'Tar bort…' : 'Uppdaterar…');
+    try {
+      const result = await invokeManage(client, kind, selected.id, action);
+      if (action === 'delete') { setSelected(null); setMessage('Innehållet är permanent borttaget.'); await load(); }
+      else { setSelected(result); setMessage(action === 'archive' ? 'Innehållet är arkiverat.' : 'Innehållet är återställt som opublicerat.'); await load(result.id); }
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Åtgärden kunde inte genomföras.'); }
+    finally { setSaving(false); }
+  };
+
   return <div className="admin-split resource-editor">
     <aside>
       <div className="resource-list-heading"><h2>{labels[kind].plural}</h2><button className="button button-primary" onClick={() => setSelected(createResourceDraft(kind))}>Skapa ny</button></div>
-      {items.map((item) => <button className={selected?.id === item.id ? 'is-active' : ''} key={item.id} onClick={() => { setSelected(item); setMessage(''); }}><span>{item.title}</span><small>{item.is_published ? 'Publicerad' : 'Inte publicerad'}</small></button>)}
+      {items.map((item) => <button className={selected?.id === item.id ? 'is-active' : ''} key={item.id} onClick={() => { setSelected(item); setMessage(''); }}><span>{item.title}</span><small>{item.archived_at ? 'Arkiverad' : item.is_published ? 'Publicerad' : 'Inte publicerad'}</small></button>)}
       {items.length === 0 && <p className="empty-note">Inga poster ännu.</p>}
     </aside>
     <section>
       {selected ? <>
-        <div className="admin-heading"><div><p className="eyebrow">{selected.id ? `Redigera ${labels[kind].singular}` : `Skapa ${labels[kind].singular}`}</p><h1>{selected.title}</h1></div><button className="button button-primary" disabled={saving} onClick={save}>{saving ? 'Sparar…' : 'Spara'}</button></div>
+        <div className="admin-heading"><div><p className="eyebrow">{selected.archived_at ? 'Arkiverat innehåll' : selected.id ? `Redigera ${labels[kind].singular}` : `Skapa ${labels[kind].singular}`}</p><h1>{selected.title}</h1></div><div className="admin-actions">{selected.id && !selected.archived_at && <button className="danger" disabled={saving} onClick={() => manage('archive')}>Arkivera</button>}{selected.archived_at && <><button disabled={saving} onClick={() => manage('restore')}>Återställ</button><button className="danger" disabled={saving} onClick={() => manage('delete')}>Ta bort permanent</button></>}<button className="button button-primary" disabled={saving || Boolean(selected.archived_at)} onClick={save}>{saving ? 'Arbetar…' : 'Spara'}</button></div></div>
+        {selected.archived_at && <p className="archive-notice">Arkiverades {new Date(selected.archived_at).toLocaleString('sv-SE')}. Återställ posten innan den redigeras.</p>}
         <div className="field-grid">
           <label>Titel<input value={selected.title} maxLength={160} onChange={(event) => setSelected({ ...selected, title: event.target.value })} /></label>
           {kind === 'news_posts' && <>
@@ -101,7 +121,7 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
             <label className="span-two">PDF<select value={selected.media_id} onChange={(event) => setSelected({ ...selected, media_id: event.target.value })}><option value="">Välj uppladdad PDF</option>{pdfMedia.map((asset) => <option value={asset.id} key={asset.id}>{asset.original_name}</option>)}</select>{pdfMedia.length === 0 && <small>Ladda först upp en PDF under Media.</small>}</label>
             <label>Sorteringsordning<input type="number" value={selected.sort_order} onChange={(event) => setSelected({ ...selected, sort_order: Number(event.target.value) })} /></label>
           </>}
-          <label className="check"><input type="checkbox" checked={selected.is_published} onChange={(event) => setSelected({ ...selected, is_published: event.target.checked })} /> Publicerad</label>
+          <label className="check"><input type="checkbox" disabled={Boolean(selected.archived_at)} checked={selected.is_published} onChange={(event) => setSelected({ ...selected, is_published: event.target.checked })} /> Publicerad</label>
         </div>
         {kind === 'news_posts' && <BlockEditor template="article" blocks={selected.body_blocks} onChange={(body_blocks) => setSelected({ ...selected, body_blocks })} />}
         {message && <p role="status" className="save-message">{message}</p>}

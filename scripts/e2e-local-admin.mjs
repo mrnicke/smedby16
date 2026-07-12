@@ -278,6 +278,32 @@ try {
   assert(!publicEvents.error, 'Den publicerade kalenderposten kunde inte läsas anonymt.');
   assert(!publicDocuments.error && publicDocuments.data.public_path.includes(storagePath), 'PDF-dokumentet saknar publik mediareferens.');
 
+  const mediaDeleteBlocked = await invoke('manage-media', admin.token, { id: media.id, action: 'delete' });
+  assert(mediaDeleteBlocked.status === 409, `Refererad media gav ${mediaDeleteBlocked.status}, väntade 409.`);
+
+  const archiveNews = await invoke('manage-content', admin.token, { entity: 'news_posts', id: news.id, action: 'archive' });
+  assert(archiveNews.status === 200 && archiveNews.payload?.data?.archived_at, 'Nyheten kunde inte arkiveras.');
+  const { data: archivedPublicNews } = await anonymous.from('news_posts').select('id').eq('id', news.id);
+  assert(archivedPublicNews?.length === 0, 'Arkiverad nyhet var fortfarande publik.');
+  const restoreNews = await invoke('manage-content', admin.token, { entity: 'news_posts', id: news.id, action: 'restore' });
+  assert(restoreNews.status === 200 && !restoreNews.payload?.data?.archived_at && !restoreNews.payload?.data?.is_published, 'Nyheten återställdes inte som opublicerad.');
+
+  const prematureDelete = await invoke('manage-content', admin.token, { entity: 'calendar_events', id: event.id, action: 'delete' });
+  assert(prematureDelete.status === 409, `Oarkiverad permanent radering gav ${prematureDelete.status}, väntade 409.`);
+  const archiveEvent = await invoke('manage-content', admin.token, { entity: 'calendar_events', id: event.id, action: 'archive' });
+  assert(archiveEvent.status === 200, 'Kalenderposten kunde inte arkiveras.');
+  const deleteEvent = await invoke('manage-content', admin.token, { entity: 'calendar_events', id: event.id, action: 'delete' });
+  assert(deleteEvent.status === 200, 'Arkiverad kalenderpost kunde inte tas bort permanent.');
+
+  const archiveDocument = await invoke('manage-content', admin.token, { entity: 'documents', id: document.id, action: 'archive' });
+  assert(archiveDocument.status === 200, 'Dokumentet kunde inte arkiveras.');
+  const mediaStillBlocked = await invoke('manage-media', admin.token, { id: media.id, action: 'delete' });
+  assert(mediaStillBlocked.status === 409, 'Media som används av arkiverat innehåll kunde tas bort.');
+  const deleteDocument = await invoke('manage-content', admin.token, { entity: 'documents', id: document.id, action: 'delete' });
+  assert(deleteDocument.status === 200, 'Arkiverat dokument kunde inte tas bort permanent.');
+  const mediaDelete = await invoke('manage-media', admin.token, { id: media.id, action: 'delete' });
+  assert(mediaDelete.status === 200, 'Orefererad media kunde inte tas bort.');
+
   console.log('PASS public signup disabled');
   console.log('PASS anonymous write denied (401)');
   console.log('PASS inactive admin denied (403)');
@@ -287,6 +313,8 @@ try {
   console.log('PASS news, calendar event and document saved through Edge Function');
   console.log('PASS revision created and restored');
   console.log('PASS published resources readable anonymously');
+  console.log('PASS content archive, restore and guarded permanent deletion');
+  console.log('PASS referenced media deletion blocked and unreferenced media removed');
 } finally {
   await cleanup();
 }
