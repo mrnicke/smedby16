@@ -4,7 +4,7 @@ import Footer from './Footer.astro';
 import { siteConfig } from '../config/site';
 import LiveCmsPage from './cms/LiveCmsPage';
 import { pageKeyFromPath } from '../lib/cms/schema';
-import { getPublishedPageSnapshot, getPublicCollectionsSnapshot } from '../lib/supabase/snapshot';
+import { getChromeSnapshot, getPublicMediaUrl, getPublishedPageSnapshot, getPublicCollectionsSnapshot } from '../lib/supabase/snapshot';
 import '@phosphor-icons/web/regular';
 import '../styles/global.css';
 import '../styles/cms.css';
@@ -19,10 +19,15 @@ const {
   description = siteConfig.description,
 } = Astro.props;
 const pageKey = pageKeyFromPath(Astro.url.pathname);
-const cmsPage = pageKey ? await getPublishedPageSnapshot(pageKey) : null;
+const [cmsPage, chrome] = await Promise.all([pageKey ? getPublishedPageSnapshot(pageKey) : null, getChromeSnapshot()]);
 const collections = cmsPage ? await getPublicCollectionsSnapshot() : { news: [], calendar: [], documents: [] };
-const effectiveTitle = cmsPage?.seo_title || (cmsPage ? `${cmsPage.title} | Smedby 1:6` : title);
-const effectiveDescription = cmsPage?.seo_description || description;
+const siteName = chrome?.settings?.site_name || 'Smedby 1:6';
+const effectiveTitle = cmsPage?.seo_title || (cmsPage ? `${cmsPage.title} | ${siteName}` : chrome?.settings?.default_seo_title || title);
+const effectiveDescription = cmsPage?.seo_description || chrome?.settings?.default_seo_description || description;
+let socialMediaUrl = chrome?.socialMediaUrl ?? null;
+if (cmsPage?.social_media_id && cmsPage.social_media_id !== chrome?.settings?.social_media_id) {
+  socialMediaUrl = await getPublicMediaUrl(cmsPage.social_media_id);
+}
 ---
 
 <!doctype html>
@@ -35,6 +40,7 @@ const effectiveDescription = cmsPage?.seo_description || description;
     <meta property="og:title" content={effectiveTitle} />
     <meta property="og:description" content={effectiveDescription} />
     <meta property="og:type" content="website" />
+    {socialMediaUrl && <meta property="og:image" content={socialMediaUrl} />}
     <title>{effectiveTitle}</title>
   </head>
   <body>

@@ -93,6 +93,12 @@ async function cleanup() {
     }
   }
 
+  const navigationIds = [...(idsByEntity.get('navigation_items') ?? [])];
+  if (navigationIds.length) {
+    const { error } = await service.from('navigation_items').delete().in('id', navigationIds);
+    if (error) throw error;
+  }
+
   const revisionIds = createdIds.map((item) => item.id);
   if (revisionIds.length) {
     const { error } = await service.from('content_revisions').delete().in('entity_id', revisionIds);
@@ -143,6 +149,11 @@ async function cleanup() {
     .list('documents', { search: `e2e-${runId}.pdf` });
   if (storedFilesError) throw storedFilesError;
   assert(remainingCounts.every((count) => count === 0), 'E2E-innehåll blev kvar efter städning.');
+  if (navigationIds.length) {
+    const { count, error } = await service.from('navigation_items').select('id', { count: 'exact', head: true }).in('id', navigationIds);
+    if (error) throw error;
+    assert((count ?? 0) === 0, 'E2E-navigation blev kvar efter städning.');
+  }
   assert((revisionCount ?? 0) === 0, 'E2E-revisioner blev kvar efter städning.');
   assert((mediaCount ?? 0) === 0 && storedFiles.length === 0, 'E2E-media blev kvar efter städning.');
   assert(!users.users.some((user) => userIds.includes(user.id)), 'E2E-användare blev kvar efter städning.');
@@ -185,6 +196,30 @@ try {
     },
   });
   assert(invalidBlock.status === 400, `Ogiltigt block gav ${invalidBlock.status}, väntade 400.`);
+
+  const invalidLink = await invoke('save-content', admin.token, {
+    entity: 'news_posts',
+    payload: {
+      slug: `invalid-link-${suffix}`,
+      title: 'Ogiltig intern länk',
+      summary: '',
+      body_blocks: [{ type: 'rich_text', document: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Trasig länk', marks: [{ type: 'link', attrs: { href: '/finns-inte/' } }] }] }] } }],
+      hero_media_id: null,
+      published_at: new Date().toISOString(),
+      is_published: false,
+    },
+  });
+  assert(invalidLink.status === 400, `Okänd intern länk gav ${invalidLink.status}, väntade 400.`);
+
+  const navigation = await save(admin.token, 'navigation_items', {
+    label: `E2E-länk ${suffix}`,
+    target_page_key: 'home',
+    external_url: null,
+    sort_order: 999,
+    visible: false,
+  });
+  const navigationDelete = await invoke('manage-navigation', admin.token, { id: navigation.id, action: 'delete' });
+  assert(navigationDelete.status === 200, `Navigationsradering gav ${navigationDelete.status}.`);
 
   const pdf = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
   const { error: uploadError } = await admin.client.storage.from('public-media').upload(storagePath, pdf, {
@@ -309,6 +344,8 @@ try {
   console.log('PASS inactive admin denied (403)');
   console.log('PASS direct table write denied');
   console.log('PASS unsafe block rejected (400)');
+  console.log('PASS unknown internal link rejected (400)');
+  console.log('PASS navigation saved and deleted through authenticated functions');
   console.log('PASS authenticated PDF upload and media metadata');
   console.log('PASS news, calendar event and document saved through Edge Function');
   console.log('PASS revision created and restored');

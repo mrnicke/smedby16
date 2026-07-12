@@ -27,6 +27,7 @@ const labels: Record<ContentBlock['type'], string> = {
 
 type LinkValue = { label: string; href: string };
 type ImageValue = { src: string; alt: string };
+export type EditorMediaAsset = { id: string; original_name: string; alt_text: string; public_url: string };
 
 function LinkEditor({ value, onChange, onRemove }: { value: LinkValue; onChange: (value: LinkValue) => void; onRemove?: () => void }) {
   return <div className="repeater-row">
@@ -36,18 +37,20 @@ function LinkEditor({ value, onChange, onRemove }: { value: LinkValue; onChange:
   </div>;
 }
 
-function ImageEditor({ value, onChange }: { value: ImageValue; onChange: (value: ImageValue) => void }) {
-  return <div className="field-grid compact-grid">
-    <label>Bildadress<input value={value.src} onChange={(event) => onChange({ ...value, src: event.target.value })} placeholder="/images/… eller https://…" /></label>
+function ImageEditor({ value, onChange, media }: { value: ImageValue; onChange: (value: ImageValue) => void; media: EditorMediaAsset[] }) {
+  return <div className="image-editor">
+    <label>Välj från mediebiblioteket<select value="" onChange={(event) => { const asset = media.find((item) => item.id === event.target.value); if (asset) onChange({ src: asset.public_url, alt: asset.alt_text }); }}><option value="">Välj bild…</option>{media.map((asset) => <option value={asset.id} key={asset.id}>{asset.original_name}</option>)}</select></label>
+    {value.src && <img className="image-editor-preview" src={value.src} alt={value.alt} />}
     <label>Alt-text<input value={value.alt} onChange={(event) => onChange({ ...value, alt: event.target.value })} /></label>
+    <details><summary>Avancerad bildadress</summary><label>Bildadress<input value={value.src} onChange={(event) => onChange({ ...value, src: event.target.value })} placeholder="/images/… eller https://…" /></label></details>
   </div>;
 }
 
-function BlockFields({ block, onChange }: { block: ContentBlock; onChange: (block: ContentBlock) => void }) {
+function BlockFields({ block, onChange, media }: { block: ContentBlock; onChange: (block: ContentBlock) => void; media: EditorMediaAsset[] }) {
   if (block.type === 'hero') return <>
     <label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label>
     <label>Ingress<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label>
-    {block.image ? <fieldset className="nested-fields"><legend>Bakgrundsbild</legend><ImageEditor value={block.image} onChange={(image) => onChange({ ...block, image })} /><button type="button" className="text-button" onClick={() => { const { image: _image, ...rest } = block; onChange(rest); }}>Ta bort bild</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, image: { src: '/images/miljo-gronyta.webp', alt: 'Miljöbild från området' } })}>Lägg till bild</button>}
+    {block.image ? <fieldset className="nested-fields"><legend>Bakgrundsbild</legend><ImageEditor value={block.image} media={media} onChange={(image) => onChange({ ...block, image })} /><button type="button" className="text-button" onClick={() => { const { image: _image, ...rest } = block; onChange(rest); }}>Ta bort bild</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, image: { src: '/images/miljo-gronyta.webp', alt: 'Miljöbild från området' } })}>Lägg till bild</button>}
     {block.action ? <fieldset className="nested-fields"><legend>Knapp</legend><LinkEditor value={block.action} onChange={(action) => onChange({ ...block, action })} /><button type="button" className="text-button" onClick={() => { const { action: _action, ...rest } = block; onChange(rest); }}>Ta bort knapp</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, action: { label: 'Läs mer', href: '/' } })}>Lägg till knapp</button>}
   </>;
 
@@ -65,7 +68,7 @@ function BlockFields({ block, onChange }: { block: ContentBlock; onChange: (bloc
   if (block.type === 'image_text') return <>
     <label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label>
     <label>Text<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label>
-    <ImageEditor value={block.image} onChange={(image) => onChange({ ...block, image })} />
+    <ImageEditor value={block.image} media={media} onChange={(image) => onChange({ ...block, image })} />
     <label>Bildplacering<select value={block.imagePosition} onChange={(event) => onChange({ ...block, imagePosition: event.target.value as 'left' | 'right' })}><option value="left">Vänster</option><option value="right">Höger</option></select></label>
   </>;
 
@@ -90,7 +93,7 @@ function BlockFields({ block, onChange }: { block: ContentBlock; onChange: (bloc
   if (block.type === 'area_guide') return <>
     <label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label>
     <label>Text<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label>
-    {block.image ? <fieldset className="nested-fields"><legend>Bild</legend><ImageEditor value={block.image} onChange={(image) => onChange({ ...block, image })} /><button type="button" className="text-button" onClick={() => { const { image: _image, ...rest } = block; onChange(rest); }}>Ta bort bild</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, image: { src: '/images/omradeskarta.webp', alt: 'Karta över Smedby 1:6' } })}>Lägg till bild</button>}
+    {block.image ? <fieldset className="nested-fields"><legend>Bild</legend><ImageEditor value={block.image} media={media} onChange={(image) => onChange({ ...block, image })} /><button type="button" className="text-button" onClick={() => { const { image: _image, ...rest } = block; onChange(rest); }}>Ta bort bild</button></fieldset> : <button type="button" onClick={() => onChange({ ...block, image: { src: '/images/omradeskarta.webp', alt: 'Karta över Smedby 1:6' } })}>Lägg till bild</button>}
     <div className="repeater-list">{block.links.map((link, index) => <LinkEditor key={index} value={link} onChange={(value) => onChange({ ...block, links: block.links.map((item, itemIndex) => itemIndex === index ? value : item) })} onRemove={() => onChange({ ...block, links: block.links.filter((_, itemIndex) => itemIndex !== index) })} />)}</div>
     <button type="button" disabled={block.links.length >= 12} onClick={() => onChange({ ...block, links: [...block.links, { label: 'Ny plats', href: '/kontakt/' }] })}>Lägg till länk</button>
   </>;
@@ -106,10 +109,11 @@ function BlockFields({ block, onChange }: { block: ContentBlock; onChange: (bloc
   return <><label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label><label>Hjälptext<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label></>;
 }
 
-export default function BlockEditor({ template, blocks, onChange }: { template: keyof typeof pageTemplateRules; blocks: ContentBlock[]; onChange: (blocks: ContentBlock[]) => void }) {
+export default function BlockEditor({ template, blocks, onChange, media = [] }: { template: keyof typeof pageTemplateRules; blocks: ContentBlock[]; onChange: (blocks: ContentBlock[]) => void; media?: EditorMediaAsset[] }) {
   const allowed = pageTemplateRules[template].allowed;
   const [addType, setAddType] = useState<ContentBlock['type']>(allowed[0]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [previewMode, setPreviewMode] = useState<'desktop'|'mobile'>('desktop');
   useEffect(() => { if (!allowed.includes(addType)) setAddType(allowed[0]); }, [template, addType, allowed]);
   const update = (index: number, block: ContentBlock) => onChange(blocks.map((item, itemIndex) => itemIndex === index ? block : item));
   const move = (from: number, to: number) => { const copy = [...blocks]; const [item] = copy.splice(from, 1); copy.splice(to, 0, item); onChange(copy); };
@@ -118,10 +122,10 @@ export default function BlockEditor({ template, blocks, onChange }: { template: 
       <div className="block-editor-heading"><div><h2>Sidblock</h2><p>Flytta innehållet uppåt eller nedåt i den ordning det ska visas.</p></div><span>{blocks.length} block</span></div>
       {blocks.map((block, index) => <details className={`block-panel ${draggedIndex === index ? 'is-dragging' : ''}`} open key={`${block.type}-${index}`} onDragOver={(event) => event.preventDefault()} onDrop={() => { if (draggedIndex !== null && draggedIndex !== index) move(draggedIndex, index); setDraggedIndex(null); }}>
         <summary><span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; setDraggedIndex(index); }} onDragEnd={() => setDraggedIndex(null)} title="Dra för att sortera">⋮⋮</span><span>{index + 1}. {labels[block.type]}</span><small>{block.type}</small></summary>
-        <div className="block-panel-body"><div className="block-actions"><button type="button" disabled={index === 0} onClick={() => move(index, index - 1)}>Flytta upp</button><button type="button" disabled={index === blocks.length - 1} onClick={() => move(index, index + 1)}>Flytta ned</button><button type="button" onClick={() => onChange([...blocks.slice(0, index + 1), structuredClone(block), ...blocks.slice(index + 1)])}>Duplicera</button><button type="button" className="danger" onClick={() => onChange(blocks.filter((_, itemIndex) => itemIndex !== index))}>Ta bort</button></div><BlockFields block={block} onChange={(value) => update(index, value)} /></div>
+        <div className="block-panel-body"><div className="block-actions"><button type="button" disabled={index === 0} onClick={() => move(index, index - 1)}>Flytta upp</button><button type="button" disabled={index === blocks.length - 1} onClick={() => move(index, index + 1)}>Flytta ned</button><button type="button" onClick={() => onChange([...blocks.slice(0, index + 1), structuredClone(block), ...blocks.slice(index + 1)])}>Duplicera</button><button type="button" className="danger" onClick={() => onChange(blocks.filter((_, itemIndex) => itemIndex !== index))}>Ta bort</button></div><BlockFields block={block} media={media} onChange={(value) => update(index, value)} /></div>
       </details>)}
       <div className="add-block"><label>Ny blocktyp<select value={addType} onChange={(event) => setAddType(event.target.value as ContentBlock['type'])}>{allowed.map((type) => <option value={type} key={type}>{labels[type]}</option>)}</select></label><button type="button" className="button button-secondary" onClick={() => onChange([...blocks, structuredClone(defaults[addType])])}>Lägg till block</button></div>
     </div>
-    <aside className="live-preview"><div className="preview-heading"><h2>Förhandsvisning</h2><p>Uppdateras medan du skriver.</p></div><BlockRenderer blocks={blocks} preview /></aside>
+    <aside className={`live-preview preview-${previewMode}`}><div className="preview-heading"><div><h2>Förhandsvisning</h2><p>Uppdateras medan du skriver.</p></div><div className="preview-switch"><button type="button" className={previewMode === 'desktop' ? 'is-active' : ''} onClick={() => setPreviewMode('desktop')}>Desktop</button><button type="button" className={previewMode === 'mobile' ? 'is-active' : ''} onClick={() => setPreviewMode('mobile')}>Mobil</button></div></div><BlockRenderer blocks={blocks} preview /></aside>
   </div>;
 }

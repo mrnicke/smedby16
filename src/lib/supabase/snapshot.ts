@@ -20,6 +20,20 @@ export async function getPublishedPageSnapshot(pageKey: string): Promise<CmsPage
   }
 }
 
+export async function getPublicMediaUrl(mediaId?: string | null): Promise<string | null> {
+  if (!mediaId) return null;
+  const config = getPublicSupabaseConfig();
+  if (!config) return null;
+  try {
+    const client = createClient(config.url, config.publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await client.from('media_assets').select('storage_path').eq('id', mediaId).is('deleted_at', null).maybeSingle();
+    if (error || !data?.storage_path) return null;
+    return client.storage.from('public-media').getPublicUrl(data.storage_path).data.publicUrl;
+  } catch {
+    return null;
+  }
+}
+
 export async function getChromeSnapshot() {
   const config = getPublicSupabaseConfig();
   if (!config) return null;
@@ -30,7 +44,8 @@ export async function getChromeSnapshot() {
       client.from('site_settings').select('*').single(),
     ]);
     if (navError || settingsError) throw navError ?? settingsError;
-    return { navigation: navigation ?? [], settings };
+    const socialMediaUrl = await getPublicMediaUrl(settings?.social_media_id);
+    return { navigation: navigation ?? [], settings, socialMediaUrl };
   } catch (error) {
     if (import.meta.env.CMS_REQUIRED === 'true') throw error;
     return null;

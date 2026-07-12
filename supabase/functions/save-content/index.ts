@@ -1,5 +1,6 @@
 import { z } from 'npm:zod@4';
 import { blockListSchema, pageTemplateSchema, validatePageBlocks } from '../../../src/lib/cms/schema.ts';
+import { invalidInternalHrefs } from '../../../src/lib/cms/links.ts';
 import { corsHeaders, json } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 
@@ -25,9 +26,15 @@ Deno.serve(async (request) => {
     if (!(entity in schemas)) return json(request, { error: 'Innehållstypen stöds inte.' }, 400);
     const payload = (schemas[entity] as z.ZodTypeAny).parse(input.payload) as Record<string, unknown>;
     if (entity === 'pages') validatePageBlocks(payload.template as any, payload.blocks as any);
+    if (entity === 'pages' || entity === 'news_posts') {
+      const { data: routes, error: routeError } = await service.from('pages').select('slug');
+      if (routeError) throw routeError;
+      const invalidLinks = invalidInternalHrefs(entity === 'pages' ? payload.blocks : payload.body_blocks, (routes ?? []).map((route) => route.slug));
+      if (invalidLinks.length) return json(request, { error: `Okända interna länkar: ${invalidLinks.join(', ')}` }, 400);
+    }
     if (['news_posts','calendar_events','documents'].includes(entity) && payload.archived_at) return json(request, { error: 'Återställ arkiverat innehåll innan det redigeras.' }, 409);
     payload.updated_by = user.id;
-    if (!payload.id) payload.created_by = user.id;
+    if (!payload.id && entity !== 'navigation_items') payload.created_by = user.id;
     const query = payload.id ? service.from(entity).update(payload).eq('id', payload.id) : service.from(entity).insert(payload);
     const { data, error } = await query.select().single();
     if (error) throw error;
