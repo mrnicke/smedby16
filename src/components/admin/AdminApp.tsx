@@ -15,7 +15,7 @@ type Tab = 'dashboard' | 'pages' | 'news' | 'calendar' | 'documents' | 'media' |
 type TabItem = { key: Tab; label: string; icon: string; group: 'Innehåll' | 'Webbplats' };
 const tabs: TabItem[] = [
   { key: 'dashboard', label: 'Översikt', icon: 'ph-house', group: 'Innehåll' },
-  { key: 'pages', label: 'Sidor', icon: 'ph-file-text', group: 'Innehåll' },
+  { key: 'pages', label: 'Redigera sidor', icon: 'ph-file-text', group: 'Innehåll' },
   { key: 'news', label: 'Nyheter', icon: 'ph-newspaper', group: 'Innehåll' },
   { key: 'calendar', label: 'Kalender', icon: 'ph-calendar-dots', group: 'Innehåll' },
   { key: 'documents', label: 'Dokument', icon: 'ph-files', group: 'Innehåll' },
