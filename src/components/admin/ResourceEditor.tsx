@@ -4,6 +4,8 @@ import { blockListSchema } from '../../lib/cms/schema';
 import BlockEditor from './BlockEditor';
 import { createResourceDraft, type CmsResourceKind } from '../../lib/cms/resources';
 import { confirmDiscard, useUnsavedChanges } from './useUnsavedChanges';
+import { AdminLoading, AdminNotice, type NoticeTone } from './AdminFeedback';
+import { useSaveShortcut } from './useAdminShortcuts';
 
 type ResourceKind = CmsResourceKind;
 type Resource = Record<string, any>;
@@ -45,6 +47,9 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [baseline, setBaseline] = useState('');
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [tone, setTone] = useState<NoticeTone>('info');
   const dirty = Boolean(selected && (!selected.id || (baseline && JSON.stringify(selected) !== baseline)));
   useUnsavedChanges(dirty);
 
@@ -53,28 +58,30 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
       client.from(kind).select('*').order('updated_at', { ascending: false }),
       client.from('media_assets').select('id,original_name,mime_type,storage_path,alt_text').is('deleted_at', null).order('original_name'),
     ]);
-    if (error) { setMessage('Innehållet kunde inte hämtas.'); return; }
+    if (error) { setTone('error'); setMessage('Innehållet kunde inte hämtas. Försök igen.'); setLoading(false); return; }
     setItems(data ?? []);
     setMedia((mediaRows ?? []).map((asset) => ({ ...asset, public_url: client.storage.from('public-media').getPublicUrl(asset.storage_path).data.publicUrl })));
     if (keepId) { const next = (data ?? []).find((item) => item.id === keepId) ?? null; setSelected(next); setBaseline(next ? JSON.stringify(next) : ''); }
+    setLoading(false);
   };
 
   useEffect(() => { setSelected(null); setBaseline(''); setMessage(''); void load(); }, [kind]);
   const pdfMedia = useMemo(() => media.filter((asset) => asset.mime_type === 'application/pdf'), [media]);
+  const filteredItems = useMemo(() => items.filter((item) => String(item.title).toLocaleLowerCase('sv-SE').includes(query.toLocaleLowerCase('sv-SE'))), [items, query]);
 
   const save = async () => {
     if (!selected || saving || selected.archived_at) return;
-    setSaving(true); setMessage('Kontrollerar och sparar…');
+    setSaving(true); setTone('info'); setMessage('Kontrollerar och sparar…');
     try {
       if (kind === 'news_posts') blockListSchema.parse(selected.body_blocks);
       if (kind === 'documents' && !selected.media_id) throw new Error('Välj en uppladdad PDF innan dokumentet sparas.');
       if (kind === 'calendar_events' && selected.ends_at && new Date(selected.ends_at) < new Date(selected.starts_at)) throw new Error('Sluttiden måste vara efter starttiden.');
       const saved = await invokeSave(client, kind, selected);
       setSelected(saved); setBaseline(JSON.stringify(saved));
-      setMessage(saved.is_published ? 'Sparat och publicerat live.' : 'Sparat utan publicering.');
+      setTone('success'); setMessage(saved.is_published ? 'Klart! Innehållet är publicerat och syns direkt.' : 'Innehållet är sparat utan att vara publicerat.');
       await load(saved.id);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Innehållet kunde inte sparas.');
+      setTone('error'); setMessage(error instanceof Error ? error.message : 'Innehållet kunde inte sparas.');
     } finally { setSaving(false); }
   };
 
@@ -86,21 +93,23 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
     setSaving(true); setMessage(action === 'delete' ? 'Tar bort…' : 'Uppdaterar…');
     try {
       const result = await invokeManage(client, kind, selected.id, action);
-      if (action === 'delete') { setSelected(null); setMessage('Innehållet är permanent borttaget.'); await load(); }
-      else { setSelected(result); setMessage(action === 'archive' ? 'Innehållet är arkiverat.' : 'Innehållet är återställt som opublicerat.'); await load(result.id); }
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Åtgärden kunde inte genomföras.'); }
+      setTone('success'); if (action === 'delete') { setSelected(null); setMessage('Innehållet är permanent borttaget.'); await load(); }
+      else { setSelected(result); setMessage(action === 'archive' ? 'Innehållet är arkiverat och syns inte längre publikt.' : 'Innehållet är återställt som opublicerat.'); await load(result.id); }
+    } catch (error) { setTone('error'); setMessage(error instanceof Error ? error.message : 'Åtgärden kunde inte genomföras.'); }
     finally { setSaving(false); }
   };
 
+  useSaveShortcut(dirty && !saving && !selected?.archived_at, save);
+  if (loading) return <AdminLoading label={`Hämtar ${labels[kind].plural.toLocaleLowerCase('sv-SE')}`} />;
   return <div className="admin-split resource-editor">
-    <aside>
-      <div className="resource-list-heading"><h2>{labels[kind].plural}</h2><button className="button button-primary" onClick={() => { if (!confirmDiscard(dirty)) return; setSelected(createResourceDraft(kind)); setBaseline(''); setMessage(''); }}>Skapa ny</button></div>
-      {items.map((item) => <button className={selected?.id === item.id ? 'is-active' : ''} key={item.id} onClick={() => { if (!confirmDiscard(dirty)) return; setSelected(item); setBaseline(JSON.stringify(item)); setMessage(''); }}><span>{item.title}</span><small>{item.archived_at ? 'Arkiverad' : item.is_published ? 'Publicerad' : 'Inte publicerad'}</small></button>)}
-      {items.length === 0 && <p className="empty-note">Inga poster ännu.</p>}
+    <aside className="content-sidebar">
+      <div className="content-sidebar-heading"><div><p className="eyebrow">Innehåll</p><h2>{labels[kind].plural}</h2></div><span>{items.length}</span></div><button className="button button-primary create-button" onClick={() => { if (!confirmDiscard(dirty)) return; setSelected(createResourceDraft(kind)); setBaseline(''); setMessage(''); }}><i className="ph ph-plus" aria-hidden="true" />Skapa {labels[kind].singular}</button><label className="sidebar-search"><span className="sr-only">Sök {labels[kind].singular}</span><i className="ph ph-magnifying-glass" aria-hidden="true" /><input type="search" placeholder="Sök…" value={query} onChange={(event) => setQuery(event.target.value)} /></label><div className="content-sidebar-list">
+      {filteredItems.map((item) => <button className={selected?.id === item.id ? 'is-active' : ''} key={item.id} onClick={() => { if (!confirmDiscard(dirty)) return; setSelected(item); setBaseline(JSON.stringify(item)); setMessage(''); }}><span>{item.title}</span><small><span className={`status-dot ${item.archived_at ? 'is-archived' : item.is_published ? 'is-published' : ''}`} />{item.archived_at ? 'Arkiverad' : item.is_published ? 'Publicerad' : 'Inte publicerad'}</small></button>)}
+      {filteredItems.length === 0 && <p className="empty-note">{items.length ? 'Inget matchar sökningen.' : 'Inga poster ännu.'}</p>}</div>
     </aside>
     <section>
       {selected ? <>
-        <div className="admin-heading"><div><p className="eyebrow">{selected.archived_at ? 'Arkiverat innehåll' : selected.id ? `Redigera ${labels[kind].singular}` : `Skapa ${labels[kind].singular}`}</p><h1>{selected.title}</h1></div><div className="admin-actions">{dirty && <span className="dirty-badge">Osparade ändringar</span>}{selected.id && !selected.archived_at && <button className="danger" disabled={saving} onClick={() => manage('archive')}>Arkivera</button>}{selected.archived_at && <><button disabled={saving} onClick={() => manage('restore')}>Återställ</button><button className="danger" disabled={saving} onClick={() => manage('delete')}>Ta bort permanent</button></>}<button className="button button-primary" disabled={saving || Boolean(selected.archived_at) || !dirty} onClick={save}>{saving ? 'Arbetar…' : 'Spara'}</button></div></div>
+        <div className="admin-heading editor-toolbar"><div><p className="eyebrow">{selected.archived_at ? 'Arkiverat innehåll' : selected.id ? `Redigera ${labels[kind].singular}` : `Ny ${labels[kind].singular}`}</p><h1>{selected.title}</h1></div><div className="admin-actions">{dirty && <span className="dirty-badge"><i className="ph ph-pencil-simple" aria-hidden="true" />Osparat</span>}{selected.id && !selected.archived_at && <button className="button button-secondary" disabled={saving} onClick={() => manage('archive')}><i className="ph ph-archive" aria-hidden="true" />Arkivera</button>}{selected.archived_at && <><button className="button button-secondary" disabled={saving} onClick={() => manage('restore')}>Återställ</button><button className="button button-danger" disabled={saving} onClick={() => manage('delete')}>Ta bort permanent</button></>}<button className="button button-primary" disabled={saving || Boolean(selected.archived_at) || !dirty} onClick={save} title="Spara (Ctrl+S)"><i className="ph ph-floppy-disk" aria-hidden="true" />{saving ? 'Sparar…' : 'Spara'}</button></div></div><AdminNotice message={message} tone={tone} onDismiss={() => setMessage('')} />
         {selected.archived_at && <p className="archive-notice">Arkiverades {new Date(selected.archived_at).toLocaleString('sv-SE')}. Återställ posten innan den redigeras.</p>}
         <div className="field-grid">
           <label>Titel<input value={selected.title} maxLength={160} onChange={(event) => setSelected({ ...selected, title: event.target.value })} /></label>
@@ -129,7 +138,6 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
           <label className="check"><input type="checkbox" disabled={Boolean(selected.archived_at)} checked={selected.is_published} onChange={(event) => setSelected({ ...selected, is_published: event.target.checked })} /> Publicerad</label>
         </div>
         {kind === 'news_posts' && <BlockEditor template="article" blocks={selected.body_blocks} media={media.filter((asset) => asset.mime_type.startsWith('image/'))} onChange={(body_blocks) => setSelected({ ...selected, body_blocks })} />}
-        {message && <p role="status" className="save-message">{message}</p>}
       </> : <div className="empty-panel"><h1>Välj eller skapa innehåll</h1><p>Alla ändringar valideras på servern innan de sparas.</p></div>}
     </section>
   </div>;

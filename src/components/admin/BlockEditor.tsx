@@ -3,6 +3,7 @@ import type { ContentBlock } from '../../lib/cms/schema';
 import { pageTemplateRules } from '../../lib/cms/schema';
 import RichTextEditor from './RichTextEditor';
 import BlockRenderer from '../cms/BlockRenderer';
+import { blockSummary } from './blockEditorUx';
 
 const defaults: Record<ContentBlock['type'], ContentBlock> = {
   hero: { type: 'hero', heading: 'Ny rubrik', text: '' },
@@ -114,18 +115,19 @@ export default function BlockEditor({ template, blocks, onChange, media = [] }: 
   const [addType, setAddType] = useState<ContentBlock['type']>(allowed[0]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [previewMode, setPreviewMode] = useState<'desktop'|'mobile'>('desktop');
+  const [openBlocks, setOpenBlocks] = useState<Set<number>>(() => new Set([0]));
   useEffect(() => { if (!allowed.includes(addType)) setAddType(allowed[0]); }, [template, addType, allowed]);
   const update = (index: number, block: ContentBlock) => onChange(blocks.map((item, itemIndex) => itemIndex === index ? block : item));
   const move = (from: number, to: number) => { const copy = [...blocks]; const [item] = copy.splice(from, 1); copy.splice(to, 0, item); onChange(copy); };
   return <div className="block-editor">
     <div className="block-editor-list">
       <div className="block-editor-heading"><div><h2>Sidblock</h2><p>Flytta innehållet uppåt eller nedåt i den ordning det ska visas.</p></div><span>{blocks.length} block</span></div>
-      {blocks.map((block, index) => <details className={`block-panel ${draggedIndex === index ? 'is-dragging' : ''}`} open key={`${block.type}-${index}`} onDragOver={(event) => event.preventDefault()} onDrop={() => { if (draggedIndex !== null && draggedIndex !== index) move(draggedIndex, index); setDraggedIndex(null); }}>
-        <summary><span className="drag-handle" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; setDraggedIndex(index); }} onDragEnd={() => setDraggedIndex(null)} title="Dra för att sortera">⋮⋮</span><span>{index + 1}. {labels[block.type]}</span><small>{block.type}</small></summary>
+      {blocks.map((block, index) => <details className={`block-panel ${draggedIndex === index ? 'is-dragging' : ''}`} open={openBlocks.has(index)} key={`${block.type}-${index}`} onToggle={(event) => { const isOpen = event.currentTarget.open; setOpenBlocks((current) => { const next = new Set(current); if (isOpen) next.add(index); else next.delete(index); return next; }); }} onDragOver={(event) => event.preventDefault()} onDrop={() => { if (draggedIndex !== null && draggedIndex !== index) move(draggedIndex, index); setDraggedIndex(null); }}>
+        <summary><span className="drag-handle" draggable aria-hidden="true" onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; setDraggedIndex(index); }} onDragEnd={() => setDraggedIndex(null)} title="Dra för att sortera">⋮⋮</span><span className="block-summary"><strong>{index + 1}. {labels[block.type]}</strong><small>{blockSummary(block)}</small></span><i className="ph ph-caret-down" aria-hidden="true" /></summary>
         <div className="block-panel-body"><div className="block-actions"><button type="button" disabled={index === 0} onClick={() => move(index, index - 1)}>Flytta upp</button><button type="button" disabled={index === blocks.length - 1} onClick={() => move(index, index + 1)}>Flytta ned</button><button type="button" onClick={() => onChange([...blocks.slice(0, index + 1), structuredClone(block), ...blocks.slice(index + 1)])}>Duplicera</button><button type="button" className="danger" onClick={() => onChange(blocks.filter((_, itemIndex) => itemIndex !== index))}>Ta bort</button></div><BlockFields block={block} media={media} onChange={(value) => update(index, value)} /></div>
       </details>)}
       <div className="add-block"><label>Ny blocktyp<select value={addType} onChange={(event) => setAddType(event.target.value as ContentBlock['type'])}>{allowed.map((type) => <option value={type} key={type}>{labels[type]}</option>)}</select></label><button type="button" className="button button-secondary" onClick={() => onChange([...blocks, structuredClone(defaults[addType])])}>Lägg till block</button></div>
     </div>
-    <aside className={`live-preview preview-${previewMode}`}><div className="preview-heading"><div><h2>Förhandsvisning</h2><p>Uppdateras medan du skriver.</p></div><div className="preview-switch"><button type="button" className={previewMode === 'desktop' ? 'is-active' : ''} onClick={() => setPreviewMode('desktop')}>Desktop</button><button type="button" className={previewMode === 'mobile' ? 'is-active' : ''} onClick={() => setPreviewMode('mobile')}>Mobil</button></div></div><BlockRenderer blocks={blocks} preview /></aside>
+    <aside className={`live-preview preview-${previewMode}`}><div className="preview-heading"><div><p className="eyebrow">Live</p><h2>Förhandsvisning</h2><p>Uppdateras medan du skriver.</p></div><div className="preview-switch" role="group" aria-label="Förhandsvisningsstorlek"><button type="button" aria-pressed={previewMode === 'desktop'} className={previewMode === 'desktop' ? 'is-active' : ''} onClick={() => setPreviewMode('desktop')}><i className="ph ph-desktop" aria-hidden="true" />Desktop</button><button type="button" aria-pressed={previewMode === 'mobile'} className={previewMode === 'mobile' ? 'is-active' : ''} onClick={() => setPreviewMode('mobile')}><i className="ph ph-device-mobile" aria-hidden="true" />Mobil</button></div></div><BlockRenderer blocks={blocks} preview /></aside>
   </div>;
 }
