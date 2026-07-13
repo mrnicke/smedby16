@@ -1,5 +1,5 @@
 begin;
-select plan(25);
+select plan(42);
 select has_table('public','pages','pages exists');
 select has_table('public','content_revisions','revision history exists');
 select has_function('public','search_public_content',array['text','text','integer','integer'],'public search exists');
@@ -20,6 +20,23 @@ select ok(
   and not has_function_privilege('authenticated', 'public.media_asset_references(uuid)', 'EXECUTE'),
   'only server-side media management can inspect references'
 );
+select has_column('public','admin_profiles','role','admin profiles have roles');
+select has_column('public','pages','editor_document','pages support editor v2');
+select has_column('public','news_posts','editor_document','news supports editor v2');
+select has_column('public','pages','archived_at','pages can be archived without deletion');
+select has_table('public','content_drafts','server autosave drafts exist');
+select has_table('public','content_locks','editing locks exist');
+select has_table('public','editor_templates','editor templates exist');
+select has_table('public','reusable_components','reusable components exist');
+select has_table('public','global_layouts','global layouts exist');
+select has_table('public','scheduled_publications','scheduled publications exist');
+select has_table('public','content_redirects','redirects exist');
+select ok((select relrowsecurity from pg_class where oid='public.content_drafts'::regclass),'draft RLS is enabled');
+select ok((select relrowsecurity from pg_class where oid='public.editor_templates'::regclass),'template RLS is enabled');
+select has_function('public','has_admin_capability',array['text'],'capabilities are server enforced');
+select policies_are('public','editor_templates',array['active_templates_read'],'templates cannot be directly mutated by clients');
+select policies_are('public','global_layouts',array['public_global_layouts_read'],'global layouts cannot be directly mutated by clients');
+select policies_are('public','content_drafts',array['editor_drafts_read','editor_drafts_insert','editor_drafts_update'],'draft access is explicit');
 insert into public.news_posts(slug,title,summary,body_blocks,published_at,is_published,archived_at)
 values ('archived-test','Archived test','Should stay private','[]'::jsonb,now(),true,now());
 set local role anon;

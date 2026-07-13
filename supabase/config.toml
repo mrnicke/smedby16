@@ -49,6 +49,9 @@ verify_jwt = false
 [functions.deployment-status]
 verify_jwt = false
 
+[functions.run-scheduled-publications]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 policy = "per_worker"

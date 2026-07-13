@@ -30,11 +30,19 @@ Gör momenten i ordning. Lägg aldrig hemliga värden i Git, `.env.example`, Git
    npx.cmd supabase functions deploy calendar-ics --no-verify-jwt
    npx.cmd supabase functions deploy trigger-pages-build
    npx.cmd supabase functions deploy deployment-status --no-verify-jwt
+   npx.cmd supabase functions deploy editor-content
+   npx.cmd supabase functions deploy editor-lock
+   npx.cmd supabase functions deploy editor-library
+   npx.cmd supabase functions deploy manage-redirect
+   npx.cmd supabase functions deploy run-scheduled-publications --no-verify-jwt
    ```
 8. Under Authentication, stäng av publik signup och anonyma inloggningar. Ange Site URL `https://www.smedby1-6.se/admin/` och redirect-URL:er för samma adress samt localhost under utveckling.
 9. Konfigurera Custom SMTP före produktion. Lägg SMTP-lösenordet endast i Supabase Dashboard.
 10. Skapa första Auth-användaren genom Supabase Dashboard. Lägg sedan användarens UUID i `admin_profiles` med en kontrollerad SQL-migrering eller Dashboard-insättning. Skapa aldrig publik signup.
 11. Ladda upp den befintliga PDF-filen till `public-media/documents/` och uppdatera dess metadata innan dokumentposten publiceras.
+12. Konfigurera ett skyddat Cron-anrop till `run-scheduled-publications`. Authorization ska vara server-side och får aldrig exponeras i klienten.
+
+Aktivera inte `PUBLIC_ADVANCED_EDITOR` förrän migration, Edge Functions och RLS-tester har passerat. Den fullständiga editorordningen och rollbackvägen finns i [`editor-v2.md`](editor-v2.md).
 
 ## 2. Edge Function-secrets
 

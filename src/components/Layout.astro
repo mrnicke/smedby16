@@ -4,7 +4,7 @@ import Footer from './Footer.astro';
 import { siteConfig } from '../config/site';
 import LiveCmsPage from './cms/LiveCmsPage';
 import { pageKeyFromPath } from '../lib/cms/schema';
-import { getChromeSnapshot, getPublicMediaUrl, getPublishedPageSnapshot, getPublicCollectionsSnapshot } from '../lib/supabase/snapshot';
+import { getChromeSnapshot, getPublicMediaUrl, getPublishedPageSnapshot, getPublicCollectionsSnapshot, getPublicComponentsSnapshot } from '../lib/supabase/snapshot';
 import '@phosphor-icons/web/regular';
 import '../styles/global.css';
 import '../styles/cms.css';
@@ -20,7 +20,7 @@ const {
 } = Astro.props;
 const pageKey = pageKeyFromPath(Astro.url.pathname);
 const [cmsPage, chrome] = await Promise.all([pageKey ? getPublishedPageSnapshot(pageKey) : null, getChromeSnapshot()]);
-const collections = cmsPage ? await getPublicCollectionsSnapshot() : { news: [], calendar: [], documents: [] };
+const [collections, components] = cmsPage ? await Promise.all([getPublicCollectionsSnapshot(),getPublicComponentsSnapshot()]) : [{ news: [], calendar: [], documents: [] },{}];
 const siteName = chrome?.settings?.site_name || 'Smedby 1:6';
 const effectiveTitle = cmsPage?.seo_title || (cmsPage ? `${cmsPage.title} | ${siteName}` : chrome?.settings?.default_seo_title || title);
 const effectiveDescription = cmsPage?.seo_description || chrome?.settings?.default_seo_description || description;
@@ -42,12 +42,13 @@ if (cmsPage?.social_media_id && cmsPage.social_media_id !== chrome?.settings?.so
     <meta property="og:type" content="website" />
     {socialMediaUrl && <meta property="og:image" content={socialMediaUrl} />}
     <title>{effectiveTitle}</title>
+    <slot name="head" />
   </head>
   <body>
     <a class="skip-link" href="#main">Hoppa till innehåll</a>
     <Navigation currentPath={Astro.url.pathname} />
     <main id="main">
-      {pageKey && <LiveCmsPage pageKey={pageKey} initialPage={cmsPage} initialCollections={collections} client:load />}
+      {pageKey && <LiveCmsPage pageKey={pageKey} initialPage={cmsPage} initialCollections={collections} initialComponents={components} client:load />}
       <div class:list={['static-page', cmsPage && 'is-cms-replaced']} data-static-page>
         <slot />
       </div>

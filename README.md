@@ -32,6 +32,8 @@ Om publik Supabase-konfiguration saknas fortsätter den nuvarande statiska webbp
 
 Fullständig och säker driftsättningsordning finns i [`docs/deployment.md`](docs/deployment.md).
 
+Arkitektur, roller, autosave, lås, mallar, komponenter, kvalitetsgrind och stegvis lansering för den visuella editorn finns i [`docs/editor-v2.md`](docs/editor-v2.md).
+
 ## Lokal statisk fallback
 
 1. Kör `npm run build`.
@@ -45,14 +47,12 @@ Stadgarna ska ligga här:
 
 Om filen saknas efter installation behöver PDF:en kopieras manuellt till sökvägen ovan.
 
-## Avgränsningar
+## Editor v2-avgränsningar
 
 - Inget riktigt kontaktformulär.
 - Ingen publik registrering eller medlemsportal.
 - Dokument måste laddas upp till Supabase Storage innan de publiceras från CMS:et.
 
-## Senare faser
+## Avgränsningar
 
-- Kontaktformulär.
-- Medlemssidor.
-- Flera adminroller, MFA och schemalagd publicering.
+Formulärbyggare, AI-generering, flerspråkighet och fri HTML/CSS/JavaScript ingår inte i editor v2.

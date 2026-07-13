@@ -30,6 +30,7 @@ jobs:
       PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
       PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
       CMS_REQUIRED: 'true'
+      PUBLIC_ADVANCED_EDITOR: ${{ vars.PUBLIC_ADVANCED_EDITOR || 'false' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6

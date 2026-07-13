@@ -1,0 +1,11 @@
+---
+import Layout from '../components/Layout.astro';
+import { getPublicRedirectsSnapshot } from '../lib/supabase/snapshot';
+export async function getStaticPaths(){const redirects=await getPublicRedirectsSnapshot();return redirects.map(item=>({params:{redirect:item.old_path.replace(/^\/+|\/+$/g,'')},props:{newPath:item.new_path}}));}
+const {newPath}=Astro.props;
+const canonical=new URL(newPath,Astro.site);
+---
+<Layout title="Sidan har flyttat" description="Den här sidan har fått en ny adress.">
+  <Fragment slot="head"><link rel="canonical" href={canonical}/><meta http-equiv="refresh" content={`0;url=${newPath}`}/><script is:inline define:vars={{newPath}}>window.location.replace(newPath);</script></Fragment>
+  <div class="container"><h1>Sidan har flyttat</h1><p>Du skickas vidare till den nya adressen.</p><p><a href={newPath}>Gå till sidan</a></p></div>
+</Layout>

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { blockListSchema } from '../../lib/cms/schema';
+import { blockListSchema, type CmsPage } from '../../lib/cms/schema';
 import BlockEditor from './BlockEditor';
+const VisualEditor=lazy(()=>import('./VisualEditor'));
 import { createResourceDraft, type CmsResourceKind } from '../../lib/cms/resources';
 import { confirmDiscard, useUnsavedChanges } from './useUnsavedChanges';
 import { AdminLoading, AdminNotice, type NoticeTone } from './AdminFeedback';
@@ -139,6 +140,11 @@ export default function ResourceEditor({ client, kind }: { client: SupabaseClien
     <div className="resource-card-grid">{filteredItems.map((item) => <button type="button" className="resource-card" key={item.id} onClick={() => choose(item)} aria-label={`Ändra ${item.title}`}><span className="resource-card-icon"><i className={`ph ${currentLabels.icon}`} aria-hidden="true" /></span><span className="resource-card-copy"><strong>{item.title}</strong><span>{resourceSummary(kind, item)}</span><small><span className={statusClass(item)} />{statusText(item)}</small></span><span className="resource-card-action">Ändra <i className="ph ph-arrow-right" aria-hidden="true" /></span></button>)}</div>
     {filteredItems.length === 0 && <div className="empty-state"><i className={`ph ${currentLabels.icon}`} aria-hidden="true" /><strong>{items.length ? 'Inget innehåll hittades' : `Inga ${currentLabels.pluralNoun} ännu`}</strong><p>{items.length ? 'Prova ett annat sökord.' : `Välj “Skapa ${currentLabels.newTitle.toLocaleLowerCase('sv-SE')}” för att komma igång.`}</p></div>}
   </section>;
+
+  if (import.meta.env.PUBLIC_ADVANCED_EDITOR === 'true' && kind === 'news_posts' && selected.id && !selected.archived_at) {
+    const editorPage = { id:selected.id, page_key:selected.slug, slug:'/senaste-nytt/', template:'article', title:selected.title, seo_title:null, seo_description:selected.summary, social_media_id:selected.hero_media_id, blocks:selected.body_blocks, editor_version:selected.editor_version??1, editor_document:selected.editor_document??null, is_published:selected.is_published, updated_at:selected.updated_at, published_version:selected.published_version??1 } as CmsPage;
+    return <Suspense fallback={<AdminLoading label="Öppnar den visuella editorn"/>}><VisualEditor client={client} entityType="news" page={editorPage} onExit={showPicker} onPublished={(saved) => { setSelected(saved); setItems((current) => current.map((item) => item.id===saved.id?saved:item)); }} /></Suspense>;
+  }
 
   const heading = selected.id ? selected.title : currentLabels.newTitle;
   return <section className="resource-editor-page admin-panel">

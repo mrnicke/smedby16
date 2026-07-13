@@ -21,16 +21,18 @@ const defaults: Record<ContentBlock['type'], ContentBlock> = {
   calendar_feed: { type: 'calendar_feed', heading: 'Kommande datum', limit: 5 },
   document_list: { type: 'document_list', heading: 'Dokument' },
   search_teaser: { type: 'search_teaser', heading: 'Sök på webbplatsen', text: 'Hitta regler, dokument och information.' },
+  heading:{type:'heading',level:2,text:'Ny rubrik'}, image:{type:'image',image:{src:'/images/smedby-area-overview.webp',alt:'Smedby 1:6'}}, button:{type:'button',label:'Läs mer',href:'/',variant:'primary'}, divider:{type:'divider',variant:'subtle'}, spacer:{type:'spacer',size:'medium'}, approved_embed:{type:'approved_embed',url:'https://www.youtube-nocookie.com/embed/',title:'Video',aspect:'16:9'},
 };
 
 const labels: Record<ContentBlock['type'], string> = {
   hero: 'Sidans topp', rich_text: 'Textavsnitt', card_grid: 'Kort med länkar', notice: 'Informationsruta', image_text: 'Bild med text',
   link_list: 'Lista med länkar', area_guide: 'Områdesguide', faq: 'Frågor och svar', news_feed: 'Senaste nyheter',
   calendar_feed: 'Kommande datum', document_list: 'Dokument', search_teaser: 'Sökruta',
+  heading:'Rubrik',image:'Bild',button:'Knapp',divider:'Avdelare',spacer:'Mellanrum',approved_embed:'Godkänd inbäddning',
 };
 
 type LinkValue = { label: string; href: string };
-type ImageValue = { src: string; alt: string };
+type ImageValue = { src: string; alt: string; decorative?: boolean; crop?: 'original'|'square'|'landscape'|'portrait'|'wide'; focusX?: number; focusY?: number };
 export type EditorMediaAsset = { id: string; original_name: string; alt_text: string; public_url: string };
 
 function LinkEditor({ value, onChange, onRemove }: { value: LinkValue; onChange: (value: LinkValue) => void; onRemove?: () => void }) {
@@ -44,8 +46,12 @@ function LinkEditor({ value, onChange, onRemove }: { value: LinkValue; onChange:
 function ImageEditor({ value, onChange, media, client, onMediaUploaded }: { value: ImageValue; onChange: (value: ImageValue) => void; media: EditorMediaAsset[]; client?: SupabaseClient; onMediaUploaded?: (asset: UploadedMediaAsset) => void }) {
   return <div className="image-editor">
     <label>Välj från mediebiblioteket<select value="" onChange={(event) => { const asset = media.find((item) => item.id === event.target.value); if (asset) onChange({ src: asset.public_url, alt: asset.alt_text }); }}><option value="">Välj bild…</option>{media.map((asset) => <option value={asset.id} key={asset.id}>{asset.original_name}</option>)}</select></label>
-    {value.src && <img className="image-editor-preview" src={value.src} alt={value.alt} />}
-    <label>Alt-text<input value={value.alt} onChange={(event) => onChange({ ...value, alt: event.target.value })} /></label>
+    {value.src && <img className="image-editor-preview" src={value.src} alt={value.decorative ? '' : value.alt} style={{objectPosition:`${(value.focusX??.5)*100}% ${(value.focusY??.5)*100}%`}} />}
+    <label className="check"><input type="checkbox" checked={value.decorative??false} onChange={(event)=>onChange({...value,decorative:event.target.checked,alt:event.target.checked?'':value.alt})}/>Bilden är dekorativ</label>
+    {!value.decorative&&<label>Alt-text<input value={value.alt} onChange={(event) => onChange({ ...value, alt: event.target.value })} /></label>}
+    <label>Bildförhållande<select value={value.crop??'original'} onChange={(event)=>onChange({...value,crop:event.target.value as ImageValue['crop']})}><option value="original">Original</option><option value="square">Kvadrat</option><option value="landscape">Liggande</option><option value="portrait">Stående</option><option value="wide">Bred</option></select></label>
+    <label>Fokus vågrätt<input type="range" min="0" max="1" step="0.01" value={value.focusX??.5} onChange={(event)=>onChange({...value,focusX:Number(event.target.value)})}/></label>
+    <label>Fokus lodrätt<input type="range" min="0" max="1" step="0.01" value={value.focusY??.5} onChange={(event)=>onChange({...value,focusY:Number(event.target.value)})}/></label>
     {client && <InlineMediaUpload client={client} kind="image" onUploaded={(asset) => { onMediaUploaded?.(asset); onChange({ src: asset.public_url, alt: asset.alt_text }); }} />}
     <details><summary>Avancerad bildadress</summary><label>Bildadress<input value={value.src} onChange={(event) => onChange({ ...value, src: event.target.value })} placeholder="/images/… eller https://…" /></label></details>
   </div>;
@@ -111,6 +117,12 @@ function BlockFields({ block, onChange, media, client, onMediaUploaded }: { bloc
 
   if (block.type === 'news_feed' || block.type === 'calendar_feed') return <div className="field-grid compact-grid"><label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label><label>Antal<input type="number" min={1} max={12} value={block.limit} onChange={(event) => onChange({ ...block, limit: Number(event.target.value) })} /></label></div>;
   if (block.type === 'document_list') return <div className="field-grid compact-grid"><label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label><label>Kategori (valfri)<input value={block.category ?? ''} onChange={(event) => onChange({ ...block, category: event.target.value || undefined })} /></label></div>;
+  if(block.type==='heading')return <><label>Rubrik<input value={block.text} onChange={event=>onChange({...block,text:event.target.value})}/></label><label>Nivå<select value={block.level} onChange={event=>onChange({...block,level:Number(event.target.value) as 2|3})}><option value="2">Rubrik 2</option><option value="3">Rubrik 3</option></select></label></>;
+  if(block.type==='image')return <ImageEditor value={block.image} media={media} client={client} onMediaUploaded={onMediaUploaded} onChange={image=>onChange({...block,image})}/>;
+  if(block.type==='button')return <><LinkEditor value={{label:block.label,href:block.href}} onChange={value=>onChange({...block,...value})}/><label>Variant<select value={block.variant} onChange={event=>onChange({...block,variant:event.target.value as typeof block.variant})}><option value="primary">Primär</option><option value="secondary">Sekundär</option><option value="text">Text</option></select></label></>;
+  if(block.type==='divider')return <label>Stil<select value={block.variant} onChange={event=>onChange({...block,variant:event.target.value as typeof block.variant})}><option value="subtle">Diskret</option><option value="strong">Tydlig</option></select></label>;
+  if(block.type==='spacer')return <label>Storlek<select value={block.size} onChange={event=>onChange({...block,size:event.target.value as typeof block.size})}><option value="small">Liten</option><option value="medium">Mellan</option><option value="large">Stor</option></select></label>;
+  if(block.type==='approved_embed')return <><label>Titel<input value={block.title} onChange={event=>onChange({...block,title:event.target.value})}/></label><label>Godkänd videoadress<input value={block.url} onChange={event=>onChange({...block,url:event.target.value})}/></label></>;
   return <><label>Rubrik<input value={block.heading} onChange={(event) => onChange({ ...block, heading: event.target.value })} /></label><label>Hjälptext<textarea value={block.text} onChange={(event) => onChange({ ...block, text: event.target.value })} /></label></>;
 }
 

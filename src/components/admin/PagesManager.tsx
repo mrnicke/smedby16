@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cmsPageSchema, validatePageBlocks, type CmsPage } from '../../lib/cms/schema';
 import { invalidInternalHrefs } from '../../lib/cms/links';
 import BlockEditor, { type EditorMediaAsset } from './BlockEditor';
+const VisualEditor=lazy(()=>import('./VisualEditor'));
 import { confirmDiscard, useUnsavedChanges } from './useUnsavedChanges';
 import { AdminLoading, AdminNotice, CharacterCount, type NoticeTone } from './AdminFeedback';
 import { useSaveShortcut } from './useAdminShortcuts';
 
 type PageRow = CmsPage & { updated_by?: string | null };
 type MediaRow = EditorMediaAsset & { mime_type: string };
+type TemplateRow = { id:string; name:string; description:string };
 
 const pageGuidance: Record<string, { description: string; icon: string }> = {
   '/': { description: 'Det första besökaren ser på webbplatsen.', icon: 'ph-house' },
@@ -44,18 +46,20 @@ export default function PagesManager({ client }: { client: SupabaseClient }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [tone, setTone] = useState<NoticeTone>('info');
+  const [templates,setTemplates]=useState<TemplateRow[]>([]);
   const dirty = Boolean(selected && baseline && JSON.stringify(selected) !== baseline);
   useUnsavedChanges(dirty);
 
   const load = async (keepId?: string) => {
-    const [{ data: pageRows, error }, { data: mediaRows }, { data: userData }] = await Promise.all([
+    const [{ data: pageRows, error }, { data: mediaRows }, { data: userData }, {data:templateRows}] = await Promise.all([
       client.from('pages').select('*').order('title'),
       client.from('media_assets').select('id,original_name,mime_type,storage_path,alt_text').is('deleted_at', null).like('mime_type', 'image/%').order('original_name'),
       client.auth.getUser(),
+      client.from('editor_templates').select('id,name,description').eq('active',true).is('archived_at',null).order('name'),
     ]);
     if (error) { setTone('error'); setMessage('Sidorna kunde inte hämtas. Försök igen.'); setLoading(false); return; }
     const parsed = (pageRows ?? []).map((row) => ({ ...cmsPageSchema.parse(row), updated_by: row.updated_by as string | null | undefined }));
-    setPages(parsed); setUserId(userData.user?.id ?? '');
+    setPages(parsed); setUserId(userData.user?.id ?? ''); setTemplates(templateRows??[]);
     setMedia((mediaRows ?? []).map((item) => ({ ...item, public_url: client.storage.from('public-media').getPublicUrl(item.storage_path).data.publicUrl })));
     if (keepId) {
       const next = parsed.find((page) => page.id === keepId) ?? null;
@@ -85,10 +89,12 @@ export default function PagesManager({ client }: { client: SupabaseClient }) {
     finally { setSaving(false); }
   };
   useSaveShortcut(dirty && !saving, save);
+  const createVisualPage=async(templateId?:string)=>{const title=window.prompt('Vad ska sidan heta?');if(!title?.trim())return;const suggested=`/${title.toLocaleLowerCase('sv-SE').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}/`;const slug=window.prompt('Ange sidans adress.',suggested);if(!slug)return;try{const {data,error}=await client.functions.invoke('editor-content',{body:{action:'create_page',entityType:'page',title:title.trim(),slug,templateId}});if(error)throw new Error(data?.error??error.message);await load(data.data.id);setSelected({...cmsPageSchema.parse(data.data),updated_by:data.data.updated_by});}catch(error){setTone('error');setMessage(error instanceof Error?error.message:'Sidan kunde inte skapas.');}};
   if (loading) return <AdminLoading label="Hämtar sidor" />;
 
   if (!selected) return <section className="page-picker admin-panel" aria-labelledby="page-picker-title">
     <div className="page-picker-header"><div><p className="eyebrow">Redigera sidor</p><h1 id="page-picker-title">Vilken sida vill du ändra?</h1><p>Välj sidan som motsvarar informationen du vill uppdatera.</p></div><span className="page-count"><strong>{pages.length}</strong> sidor</span></div>
+    {import.meta.env.PUBLIC_ADVANCED_EDITOR==='true'&&<div className="admin-actions"><button type="button" className="button button-primary" onClick={()=>createVisualPage()}>Skapa tom sida</button><button type="button" className="button button-secondary" disabled={!templates.length} onClick={()=>{const choice=window.prompt(`Välj mall:\n${templates.map((item,index)=>`${index+1}. ${item.name}`).join('\n')}`);const template=templates[Number(choice)-1];if(template)void createVisualPage(template.id);}}>Skapa från mall</button></div>}
     <label className="page-picker-search"><span className="sr-only">Sök efter en sida</span><i className="ph ph-magnifying-glass" aria-hidden="true" /><input type="search" placeholder="Sök efter en sida…" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
     <div className="page-picker-grid">{filteredPages.map((page) => {
       const guidance = guidanceFor(page);
@@ -96,6 +102,8 @@ export default function PagesManager({ client }: { client: SupabaseClient }) {
     })}</div>
     {filteredPages.length === 0 && <div className="empty-state"><i className="ph ph-magnifying-glass" aria-hidden="true" /><strong>Ingen sida hittades</strong><p>Prova ett annat sökord.</p></div>}
   </section>;
+
+  if (import.meta.env.PUBLIC_ADVANCED_EDITOR === 'true') return <Suspense fallback={<AdminLoading label="Öppnar den visuella editorn"/>}><VisualEditor client={client} page={selected} onExit={showPagePicker} onPublished={(saved) => { setSelected(saved); setPages((current) => current.map((page) => page.id === saved.id ? { ...page, ...saved } : page)); }} /></Suspense>;
 
   return <section className="page-editor admin-panel">
     <button className="page-editor-back" type="button" onClick={showPagePicker}><i className="ph ph-arrow-left" aria-hidden="true" />Alla sidor</button>

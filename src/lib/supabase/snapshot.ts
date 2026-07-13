@@ -74,3 +74,14 @@ export async function getPublicCollectionsSnapshot(): Promise<PublicCollections>
     return empty;
   }
 }
+
+export async function getPublicRedirectsSnapshot(): Promise<Array<{old_path:string;new_path:string}>> {
+  const config=getPublicSupabaseConfig(); if(!config)return [];
+  try { const client=createClient(config.url,config.publishableKey,{auth:{persistSession:false,autoRefreshToken:false}});const {data,error}=await client.from('content_redirects').select('old_path,new_path').eq('active',true);if(error)throw error;return data??[]; }
+  catch(error){if(import.meta.env.CMS_REQUIRED==='true')throw error;return [];}
+}
+
+export async function getPublicComponentsSnapshot(): Promise<Record<string,{published_definition:any}>> {
+  const config=getPublicSupabaseConfig();if(!config)return {};
+  try{const client=createClient(config.url,config.publishableKey,{auth:{persistSession:false,autoRefreshToken:false}});const {data,error}=await client.from('reusable_components').select('id,published_definition').eq('is_published',true).is('archived_at',null);if(error)throw error;return Object.fromEntries((data??[]).map(item=>[item.id,item]));}catch(error){if(import.meta.env.CMS_REQUIRED==='true')throw error;return {};}
+}

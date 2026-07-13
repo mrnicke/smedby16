@@ -101,6 +101,14 @@ async function cleanup() {
 
   const revisionIds = createdIds.map((item) => item.id);
   if (revisionIds.length) {
+    const { error } = await service.from('content_drafts').delete().in('entity_id', revisionIds);
+    if (error) throw error;
+    const { error: lockError } = await service.from('content_locks').delete().in('entity_id', revisionIds);
+    if (lockError) throw lockError;
+    const { error: scheduleError } = await service.from('scheduled_publications').delete().in('entity_id', revisionIds);
+    if (scheduleError) throw scheduleError;
+  }
+  if (revisionIds.length) {
     const { error } = await service.from('content_revisions').delete().in('entity_id', revisionIds);
     if (error) throw error;
   }
@@ -138,6 +146,10 @@ async function cleanup() {
     ? await service.from('content_revisions').select('id', { count: 'exact', head: true }).in('entity_id', contentIds)
     : { count: 0, error: null };
   if (remainingRevisionError) throw remainingRevisionError;
+  const { count: draftCount, error: remainingDraftError } = contentIds.length
+    ? await service.from('content_drafts').select('id', { count: 'exact', head: true }).in('entity_id', contentIds)
+    : { count: 0, error: null };
+  if (remainingDraftError) throw remainingDraftError;
   const { data: users, error: listUsersError } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (listUsersError) throw listUsersError;
   const { count: mediaCount, error: remainingMediaError } = mediaIds.length
@@ -155,6 +167,7 @@ async function cleanup() {
     assert((count ?? 0) === 0, 'E2E-navigation blev kvar efter städning.');
   }
   assert((revisionCount ?? 0) === 0, 'E2E-revisioner blev kvar efter städning.');
+  assert((draftCount ?? 0) === 0, 'E2E-utkast blev kvar efter städning.');
   assert((mediaCount ?? 0) === 0 && storedFiles.length === 0, 'E2E-media blev kvar efter städning.');
   assert(!users.users.some((user) => userIds.includes(user.id)), 'E2E-användare blev kvar efter städning.');
   console.log('PASS temporary users, content, revisions and media cleaned up');
@@ -302,7 +315,7 @@ try {
 
   const restored = await invoke('restore-revision', admin.token, { revisionId: revisions[0].id });
   assert(restored.status === 200, `Återställning gav HTTP ${restored.status}.`);
-  assert(restored.payload?.data?.title === originalTitle, 'Revisionen återställde inte ursprunglig titel.');
+  assert(restored.payload?.data?.snapshot?.version === 2, 'Revisionen skapade inte ett granskningsbart v2-utkast.');
 
   const [publicNews, publicEvents, publicDocuments] = await Promise.all([
     anonymous.from('news_posts').select('id').eq('id', news.id).single(),
