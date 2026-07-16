@@ -99,7 +99,7 @@ jobs:
           curl --fail --silent --show-error -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "x-webhook-timestamp: $timestamp" -H "x-webhook-signature: sha256=$signature" --data-binary "$payload"
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
       - name: Record deployment result
         if: ${{ always() }}
         shell: bash
