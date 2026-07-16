@@ -28,7 +28,7 @@ Klienten har inga policies för direkt skrivning till publicerade tabeller. Publ
 
 Publicering validerar dokumentet och kvalitetsgrinden server-side, kontrollerar lås och version och uppdaterar publicerad läsmodell. Befintliga revisionstriggers skapar historik. Återställning av sida eller nyhet skapar ett previewbart utkast; den publicerade posten skrivs inte över.
 
-`scheduled_publications` behandlas idempotent av `run-scheduled-publications`. Endast en pending/processing-körning kan claimas. Funktionen ska anropas av Supabase Cron eller motsvarande med service-role-authorization; ingen cronhemlighet får finnas i klienten.
+`scheduled_publications` behandlas idempotent av `run-scheduled-publications`. Endast en pending/processing-körning kan claimas. Samma dokument-, komponent-, kvalitets-, lås- och versionsgrind gäller som vid interaktiv publicering; den slutliga mutationens atomiska RPC kan endast köras av service role. Funktionen anropas av Supabase Cron eller motsvarande med en tidsstämplad HMAC-signatur från `CRON_WEBHOOK_SECRET`; hemligheten får aldrig finnas i klienten.
 
 ## Mallar, komponenter och globala layouts
 

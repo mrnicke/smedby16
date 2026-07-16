@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 
 const url = process.env.SUPABASE_URL;
 const anonKey = process.env.SUPABASE_ANON_KEY;
@@ -26,10 +26,16 @@ const storagePath = `documents/e2e-${runId}.pdf`;
 const createdIds = [];
 const userIds = [];
 let uploaded = false;
+let verifiedImagePath = null;
+let verifiedQuarantinePath = null;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
+
+function base32Decode(value) { const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const character of value.replace(/=+$/,'').toUpperCase())bits+=alphabet.indexOf(character).toString(2).padStart(5,'0');const bytes=[];for(let index=0;index+8<=bits.length;index+=8)bytes.push(Number.parseInt(bits.slice(index,index+8),2));return Buffer.from(bytes); }
+function totp(secret) { const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30_000)));const digest=createHmac('sha1',base32Decode(secret)).update(counter).digest();const offset=digest[digest.length-1]&15;return String((digest.readUInt32BE(offset)&0x7fffffff)%1_000_000).padStart(6,'0'); }
+async function elevate(client) { const enrollment=await client.auth.mfa.enroll({factorType:'totp',friendlyName:'local-admin-e2e'});if(enrollment.error)throw enrollment.error;const challenge=await client.auth.mfa.challenge({factorId:enrollment.data.id});if(challenge.error)throw challenge.error;const verified=await client.auth.mfa.verify({factorId:enrollment.data.id,challengeId:challenge.data.id,code:totp(enrollment.data.totp.secret)});if(verified.error)throw verified.error;const assurance=await client.auth.mfa.getAuthenticatorAssuranceLevel();assert(assurance.data.currentLevel==='aal2','E2E-administratören nådde inte AAL2.');const session=await client.auth.getSession();if(!session.data.session)throw new Error('AAL2-session saknas.');return session.data.session.access_token; }
 
 async function createUser(email, active) {
   const { data, error } = await service.auth.admin.createUser({
@@ -44,6 +50,7 @@ async function createUser(email, active) {
       user_id: data.user.id,
       display_name: active ? 'Lokal E2E-administratör' : 'Lokal E2E-inaktiv',
       active,
+      role: 'admin',
     });
     if (profileError) throw profileError;
   }
@@ -122,6 +129,14 @@ async function cleanup() {
     const { error } = await service.storage.from('public-media').remove([storagePath]);
     if (error) throw error;
   }
+  if (verifiedImagePath) {
+    const { error } = await service.storage.from('public-media').remove([verifiedImagePath]);
+    if (error) throw error;
+  }
+  if (verifiedQuarantinePath) {
+    const { error } = await service.storage.from('media-quarantine').remove([verifiedQuarantinePath]);
+    if (error) throw error;
+  }
 
   if (userIds.length) {
     const { error } = await service.from('admin_profiles').delete().in('user_id', userIds);
@@ -160,6 +175,10 @@ async function cleanup() {
     .from('public-media')
     .list('documents', { search: `e2e-${runId}.pdf` });
   if (storedFilesError) throw storedFilesError;
+  const { data: verifiedImages, error: verifiedImagesError } = verifiedImagePath
+    ? await service.storage.from('public-media').list('images', { search: verifiedImagePath.split('/').at(-1) })
+    : { data: [], error: null };
+  if (verifiedImagesError) throw verifiedImagesError;
   assert(remainingCounts.every((count) => count === 0), 'E2E-innehåll blev kvar efter städning.');
   if (navigationIds.length) {
     const { count, error } = await service.from('navigation_items').select('id', { count: 'exact', head: true }).in('id', navigationIds);
@@ -168,7 +187,7 @@ async function cleanup() {
   }
   assert((revisionCount ?? 0) === 0, 'E2E-revisioner blev kvar efter städning.');
   assert((draftCount ?? 0) === 0, 'E2E-utkast blev kvar efter städning.');
-  assert((mediaCount ?? 0) === 0 && storedFiles.length === 0, 'E2E-media blev kvar efter städning.');
+  assert((mediaCount ?? 0) === 0 && storedFiles.length === 0 && verifiedImages.length === 0, 'E2E-media blev kvar efter städning.');
   assert(!users.users.some((user) => userIds.includes(user.id)), 'E2E-användare blev kvar efter städning.');
   console.log('PASS temporary users, content, revisions and media cleaned up');
 }
@@ -179,6 +198,7 @@ try {
   assert(signupError && !signupData.user, 'Publik e-postregistrering är inte avstängd.');
 
   const admin = await createUser(adminEmail, true);
+  admin.token = await elevate(admin.client);
   const inactive = await createUser(inactiveEmail, false);
 
   const anonymousSave = await invoke('save-content', null, { entity: 'news_posts', payload: {} });
@@ -235,14 +255,54 @@ try {
   assert(navigationDelete.status === 200, `Navigationsradering gav ${navigationDelete.status}.`);
 
   const pdf = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
-  const { error: uploadError } = await admin.client.storage.from('public-media').upload(storagePath, pdf, {
+  const { error: directUploadError } = await admin.client.storage.from('public-media').upload(storagePath, pdf, {
+    contentType: 'application/pdf',
+    upsert: false,
+  });
+  assert(directUploadError, 'Administratören kunde kringgå karantänen och skriva direkt till public-media.');
+
+  const metadataBypass = await invoke('save-content', admin.token, {
+    entity: 'media_assets',
+    payload: {
+      storage_path: storagePath,
+      original_name: `e2e-${suffix}.pdf`,
+      mime_type: 'application/pdf',
+      size_bytes: pdf.byteLength,
+      alt_text: '',
+    },
+  });
+  assert(metadataBypass.status === 400, `Generisk mediaregistrering gav ${metadataBypass.status}, väntade 400.`);
+
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zxl8AAAAASUVORK5CYII=', 'base64');
+  verifiedQuarantinePath = `${admin.user.id}/${randomUUID()}.upload`;
+  const { error: quarantineUploadError } = await admin.client.storage.from('media-quarantine').upload(verifiedQuarantinePath, png, {
+    contentType: 'application/octet-stream',
+    upsert: false,
+  });
+  if (quarantineUploadError) throw quarantineUploadError;
+  const verifiedImage = await invoke('verify-media-upload', admin.token, {
+    path: verifiedQuarantinePath,
+    originalName: `e2e-${suffix}.png`,
+    kind: 'image',
+    altText: 'Transparent testbild',
+  });
+  assert(verifiedImage.status === 200, `Bildverifiering gav ${verifiedImage.status}.`);
+  verifiedImagePath = verifiedImage.payload.data.storage_path;
+  createdIds.push({ entity: 'media_assets', id: verifiedImage.payload.data.id });
+  const { data: quarantineRemainder, error: quarantineRemainderError } = await service.storage
+    .from('media-quarantine')
+    .list(admin.user.id, { search: verifiedQuarantinePath.split('/').at(-1) });
+  if (quarantineRemainderError) throw quarantineRemainderError;
+  assert(quarantineRemainder.length === 0, 'Verifierad bild blev kvar i karantänen.');
+
+  const { error: uploadError } = await service.storage.from('public-media').upload(storagePath, pdf, {
     contentType: 'application/pdf',
     upsert: false,
   });
   if (uploadError) throw uploadError;
   uploaded = true;
 
-  const media = await save(admin.token, 'media_assets', {
+  const { data: media, error: mediaError } = await service.from('media_assets').insert({
     storage_path: storagePath,
     original_name: `e2e-${suffix}.pdf`,
     mime_type: 'application/pdf',
@@ -250,7 +310,17 @@ try {
     width: null,
     height: null,
     alt_text: '',
+    created_by: admin.user.id,
+    updated_by: admin.user.id,
+  }).select().single();
+  if (mediaError) throw mediaError;
+  createdIds.push({ entity: 'media_assets', id: media.id });
+
+  const mediaAltUpdate = await invoke('save-content', admin.token, {
+    entity: 'media_assets',
+    payload: { id: media.id, alt_text: '' },
   });
+  assert(mediaAltUpdate.status === 200, `Alt-textuppdatering gav ${mediaAltUpdate.status}.`);
 
   const originalTitle = `Lokal E2E-nyhet ${suffix}`;
   const news = await save(admin.token, 'news_posts', {
@@ -359,7 +429,7 @@ try {
   console.log('PASS unsafe block rejected (400)');
   console.log('PASS unknown internal link rejected (400)');
   console.log('PASS navigation saved and deleted through authenticated functions');
-  console.log('PASS authenticated PDF upload and media metadata');
+  console.log('PASS direct public-media upload denied and verified media metadata protected');
   console.log('PASS news, calendar event and document saved through Edge Function');
   console.log('PASS revision created and restored');
   console.log('PASS published resources readable anonymously');

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cmsPageSchema, type CmsPage } from '../../lib/cms/schema';
+import { cmsPageSchema, editorDocumentV2Schema, type CmsPage } from '../../lib/cms/schema';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 import BlockRenderer from './BlockRenderer';
 import type { PublicCollections } from '../../lib/supabase/snapshot';
@@ -14,7 +14,7 @@ export default function LiveCmsPage({ pageKey, initialPage, initialCollections, 
       const parsed = data ? cmsPageSchema.safeParse(data) : null;
       if (parsed?.success) setPage(parsed.data);
     });
-    client.from('reusable_components').select('id,published_definition').eq('is_published',true).is('archived_at',null).then(({data})=>setComponents(Object.fromEntries((data??[]).map(item=>[item.id,item]))));
+    client.from('reusable_components').select('id,published_definition').eq('is_published',true).is('archived_at',null).then(({data})=>setComponents(Object.fromEntries((data??[]).flatMap(item=>{const parsed=editorDocumentV2Schema.safeParse(item.published_definition);return parsed.success?[[item.id,{published_definition:parsed.data}]]:[];}))));
   }, [pageKey]);
   useEffect(() => {
     const fallback = document.querySelector<HTMLElement>('[data-static-page]');

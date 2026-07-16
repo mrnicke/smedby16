@@ -18,6 +18,10 @@ port = 54323
 
 [auth]
 enabled = true
+enable_anonymous_sign_ins = false
+enable_refresh_token_rotation = true
+jwt_expiry = 3600
+refresh_token_reuse_interval = 10
 site_url = "https://www.smedby1-6.se/admin/"
 additional_redirect_urls = ["https://www.smedby1-6.se/admin/", "https://smedby1-6.se/admin/", "http://localhost:4321/admin/", "http://127.0.0.1:4321/admin/"]
 enable_signup = false
@@ -28,13 +32,24 @@ enable_signup = false
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = true
+secure_password_change = true
 max_frequency = "1m"
 otp_length = 8
 otp_expiry = 3600
 
+[auth.rate_limit]
+email_sent = 2
+token_refresh = 60
+sign_in_sign_ups = 10
+token_verifications = 10
+
+[auth.sessions]
+timebox = "12h"
+inactivity_timeout = "30m"
+
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 [storage]
 enabled = true
@@ -47,6 +62,9 @@ enabled = false
 verify_jwt = false
 
 [functions.deployment-status]
+verify_jwt = false
+
+[functions.download-document]
 verify_jwt = false
 
 [functions.run-scheduled-publications]

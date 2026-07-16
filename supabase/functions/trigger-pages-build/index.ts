@@ -1,10 +1,13 @@
-import { corsHeaders, json } from '../_shared/cors.ts';
-import { requireAdmin } from '../_shared/auth.ts';
+import { json } from '../_shared/cors.ts';
+import { requireCapability } from '../_shared/auth.ts';
+import { enforceMethod, handlePreflight, passthroughError } from '../_shared/http.ts';
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+  const preflight = handlePreflight(request, ['POST']); if (preflight) return preflight;
+  const methodError = enforceMethod(request, ['POST']); if (methodError) return methodError;
+  if (request.headers.get('content-length') && request.headers.get('content-length') !== '0') return json(request, { error: 'Begäran ska inte innehålla data.' }, 413);
   try {
-    const { service, user } = await requireAdmin(request);
+    const { service, user } = await requireCapability(request, 'trigger_deploy');
     const owner = Deno.env.get('GITHUB_OWNER'); const repo = Deno.env.get('GITHUB_REPO'); const token = Deno.env.get('GITHUB_ACTIONS_TOKEN');
     if (!owner || !repo || !token) return json(request, { error: 'GitHub-integrationen är inte konfigurerad.' }, 503);
     const since = new Date(Date.now() - 10 * 60_000).toISOString();
@@ -15,7 +18,7 @@ Deno.serve(async (request) => {
     if (!response.ok) { await service.from('snapshot_deployments').update({ status: 'failed', completed_at: new Date().toISOString(), error_summary: `GitHub svarade med status ${response.status}.` }).eq('id', deployment.id); throw new Error(`GitHub ${response.status}`); }
     return json(request, { data: deployment }, 202);
   } catch (error) {
-    if (error instanceof Response) return new Response(await error.text(), { status: error.status, headers: corsHeaders(request) });
+    if (error instanceof Response) return passthroughError(request, error);
     return json(request, { error: 'Bygget kunde inte startas.' }, 502);
   }
 });

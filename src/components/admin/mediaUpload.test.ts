@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_MEDIA_BYTES, validateMediaUpload } from './mediaUpload';
+import { ACCEPTED_MEDIA_TYPES, MAX_MEDIA_BYTES, validateMediaUpload } from './mediaUpload';
 
 describe('direct media upload validation', () => {
   it('accepts a described image and a PDF within the size limit', () => {
@@ -11,5 +11,9 @@ describe('direct media upload validation', () => {
     expect(validateMediaUpload({ type: 'image/gif', size: 1200 } as File, 'image', 'Bild')).toContain('JPEG');
     expect(validateMediaUpload({ type: 'image/png', size: 1200 } as File, 'image', '')).toContain('bildbeskrivning');
     expect(validateMediaUpload({ type: 'application/pdf', size: MAX_MEDIA_BYTES + 1 } as File, 'pdf')).toContain('25 MB');
+  });
+
+  it('advertises exactly the file formats accepted by validation', () => {
+    expect(ACCEPTED_MEDIA_TYPES).toBe('image/jpeg,image/png,image/webp,application/pdf');
   });
 });

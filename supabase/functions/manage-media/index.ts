@@ -1,15 +1,16 @@
 import { z } from 'npm:zod@4';
-import { corsHeaders, json } from '../_shared/cors.ts';
-import { requireAdmin } from '../_shared/auth.ts';
+import { json } from '../_shared/cors.ts';
+import { requireCapability } from '../_shared/auth.ts';
+import { enforceMethod, handlePreflight, parseJson, passthroughError } from '../_shared/http.ts';
 
 const inputSchema = z.object({ id: z.string().uuid(), action: z.enum(['usage', 'delete']) });
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
-  if (request.method !== 'POST') return json(request, { error: 'Metoden stöds inte.' }, 405);
+  const preflight = handlePreflight(request, ['POST']); if (preflight) return preflight;
+  const methodError = enforceMethod(request, ['POST']); if (methodError) return methodError;
   try {
-    const { service, user } = await requireAdmin(request);
-    const { id, action } = inputSchema.parse(await request.json());
+    const { id, action } = await parseJson(request, inputSchema);
+    const { service, user } = await requireCapability(request, 'manage_media');
     const { data: asset, error: assetError } = await service.from('media_assets').select('*').eq('id', id).is('deleted_at', null).maybeSingle();
     if (assetError) throw assetError;
     if (!asset) return json(request, { error: 'Filen kunde inte hittas.' }, 404);
@@ -28,7 +29,7 @@ Deno.serve(async (request) => {
     }
     return json(request, { data: { id, deleted: true } });
   } catch (error) {
-    if (error instanceof Response) return new Response(await error.text(), { status: error.status, headers: corsHeaders(request) });
+    if (error instanceof Response) return passthroughError(request, error);
     if (error instanceof z.ZodError) return json(request, { error: 'Ogiltig begäran.' }, 400);
     console.error('manage-media failed', error instanceof Error ? error.message : 'unknown');
     return json(request, { error: 'Filen kunde inte hanteras.' }, 500);

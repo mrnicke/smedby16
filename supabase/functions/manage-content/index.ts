@@ -1,6 +1,7 @@
 import { z } from 'npm:zod@4';
-import { corsHeaders, json } from '../_shared/cors.ts';
-import { requireAdmin } from '../_shared/auth.ts';
+import { json } from '../_shared/cors.ts';
+import { requireCapability, type Capability } from '../_shared/auth.ts';
+import { enforceMethod, handlePreflight, parseJson, passthroughError } from '../_shared/http.ts';
 
 const inputSchema = z.object({
   entity: z.enum(['news_posts', 'calendar_events', 'documents']),
@@ -8,11 +9,12 @@ const inputSchema = z.object({
   action: z.enum(['archive', 'restore', 'delete']),
 });
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
-  if (request.method !== 'POST') return json(request, { error: 'Metoden stöds inte.' }, 405);
+  const preflight = handlePreflight(request, ['POST']); if (preflight) return preflight;
+  const methodError = enforceMethod(request, ['POST']); if (methodError) return methodError;
   try {
-    const { service, user } = await requireAdmin(request);
-    const { entity, id, action } = inputSchema.parse(await request.json());
+    const { entity, id, action } = await parseJson(request, inputSchema);
+    const capability: Capability = entity === 'news_posts' ? 'publish_news' : entity === 'calendar_events' ? 'manage_calendar' : 'manage_documents';
+    const { service, user } = await requireCapability(request, capability);
     const { data: current, error: readError } = await service.from(entity).select('id,archived_at').eq('id', id).maybeSingle();
     if (readError) throw readError;
     if (!current) return json(request, { error: 'Innehållet kunde inte hittas.' }, 404);
@@ -31,7 +33,7 @@ Deno.serve(async (request) => {
     if (error) throw error;
     return json(request, { data });
   } catch (error) {
-    if (error instanceof Response) return new Response(await error.text(), { status: error.status, headers: corsHeaders(request) });
+    if (error instanceof Response) return passthroughError(request, error);
     if (error instanceof z.ZodError) return json(request, { error: 'Ogiltig begäran.' }, 400);
     console.error('manage-content failed', error instanceof Error ? error.message : 'unknown');
     return json(request, { error: 'Åtgärden kunde inte genomföras.' }, 500);

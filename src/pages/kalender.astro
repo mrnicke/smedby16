@@ -1,4 +1,5 @@
 ---
+import { safeJsonForHtmlScript } from '../lib/security/safeJson';
 import Layout from '../components/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import Section from '../components/Section.astro';
@@ -88,7 +89,7 @@ const upcomingEvents = calendarEvents
     </div>
   </Section>
 
-  <script is:inline type="application/json" id="calendar-events" set:html={JSON.stringify(calendarEvents)}></script>
+  <script is:inline type="application/json" id="calendar-events" set:html={safeJsonForHtmlScript(calendarEvents)}></script>
   <script>
     const calendarRoot = document.querySelector('[data-calendar]');
     const calendarData = document.querySelector('#calendar-events');

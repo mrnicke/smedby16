@@ -1,16 +1,18 @@
 import { z } from 'npm:zod@4';
-import { corsHeaders, json } from '../_shared/cors.ts';
-import { requireAdmin } from '../_shared/auth.ts';
-import { migrateLegacyBlocks } from '../../../src/lib/cms/schema.ts';
+import { json } from '../_shared/cors.ts';
+import { requireCapability } from '../_shared/auth.ts';
+import { enforceMethod, handlePreflight, parseJson, passthroughError } from '../_shared/http.ts';
+import { migrateLegacyBlocks } from '../_shared/cms-schema.ts';
 
 const inputSchema = z.object({ revisionId: z.string().uuid() });
 const allowed = new Set(['pages','news_posts','calendar_events','documents','media_assets','navigation_items','site_settings']);
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+  const preflight = handlePreflight(request, ['POST']); if (preflight) return preflight;
+  const methodError = enforceMethod(request, ['POST']); if (methodError) return methodError;
   try {
-    const { service, user } = await requireAdmin(request);
-    const { revisionId } = inputSchema.parse(await request.json());
+    const { revisionId } = await parseJson(request, inputSchema);
+    const { service, user } = await requireCapability(request, 'manage_revisions');
     const { data: revision, error } = await service.from('content_revisions').select('*').eq('id', revisionId).single();
     if (error || !revision || !allowed.has(revision.entity_type)) return json(request, { error: 'Revisionen kunde inte hittas.' }, 404);
     if (revision.entity_type === 'pages' || revision.entity_type === 'news_posts') {
@@ -31,7 +33,7 @@ Deno.serve(async (request) => {
     if (newest) await service.from('content_revisions').update({ restored_from_id: revision.id }).eq('id', newest.id);
     return json(request, { data });
   } catch (error) {
-    if (error instanceof Response) return new Response(await error.text(), { status: error.status, headers: corsHeaders(request) });
+    if (error instanceof Response) return passthroughError(request, error);
     return json(request, { error: 'Revisionen kunde inte återställas.' }, 500);
   }
 });

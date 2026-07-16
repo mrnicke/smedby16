@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AdminLoading, AdminNotice, type NoticeTone } from './AdminFeedback';
 import { confirmDiscard, useUnsavedChanges } from './useUnsavedChanges';
+import { ACCEPTED_MEDIA_TYPES, uploadMediaAsset } from './mediaUpload';
 
 type MediaAsset = {
   id: string; storage_path: string; original_name: string; mime_type: string; size_bytes: number;
@@ -54,19 +55,11 @@ export default function MediaManager({ client }: { client: SupabaseClient }) {
     const uploadAlt = (form.elements.namedItem('upload-alt') as HTMLInputElement).value.trim();
     const file = input.files?.[0];
     if (!file) return;
-    const allowed = ['image/jpeg','image/png','image/webp','image/avif','application/pdf'];
-    if (!allowed.includes(file.type) || file.size > 26_214_400) { setTone('error'); setMessage('Välj en JPEG-, PNG-, WebP-, AVIF- eller PDF-fil under 25 MB.'); return; }
-    if (file.type.startsWith('image/') && !uploadAlt) { setTone('error'); setMessage('Lägg till en kort alt-text som beskriver bilden.'); return; }
-    const extension = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
-    const storagePath = `${file.type === 'application/pdf' ? 'documents' : 'images'}/${crypto.randomUUID()}.${extension}`;
     setBusy(true); setTone('info'); setMessage('Laddar upp filen…');
-    const { error } = await client.storage.from('public-media').upload(storagePath, file, { contentType: file.type, upsert: false });
-    if (error) { setBusy(false); setTone('error'); setMessage('Filen kunde inte laddas upp. Försök igen.'); return; }
     try {
-      await invoke(client, 'save-content', { entity: 'media_assets', payload: { storage_path: storagePath, original_name: file.name, mime_type: file.type, size_bytes: file.size, alt_text: uploadAlt } });
+      await uploadMediaAsset(client,file,file.type==='application/pdf'?'pdf':'image',uploadAlt);
       input.value = ''; form.reset(); setTone('success'); setMessage('Klart! Filen finns nu i mediebiblioteket.'); await load();
     } catch (error) {
-      await client.storage.from('public-media').remove([storagePath]);
       setTone('error'); setMessage(error instanceof Error ? error.message : 'Uppladdningen kunde inte slutföras.');
     } finally { setBusy(false); }
   };
@@ -74,7 +67,7 @@ export default function MediaManager({ client }: { client: SupabaseClient }) {
     if (!selected || (selected.mime_type.startsWith('image/') && !alt.trim())) { setTone('error'); setMessage('Bilder måste ha en beskrivande alt-text.'); return; }
     setBusy(true);
     try {
-      const saved = await invoke(client, 'save-content', { entity: 'media_assets', payload: { ...selected, alt_text: alt.trim() } });
+      const saved = await invoke(client, 'save-content', { entity: 'media_assets', payload: { id: selected.id, alt_text: alt.trim() } });
       setSelected(saved); setTone('success'); setMessage('Filinformationen är sparad.'); await load();
     } catch (error) { setTone('error'); setMessage(error instanceof Error ? error.message : 'Filinformationen kunde inte sparas.'); }
     finally { setBusy(false); }
@@ -93,7 +86,7 @@ export default function MediaManager({ client }: { client: SupabaseClient }) {
   return <section className="admin-panel media-manager">
     <div className="admin-page-header"><div><p className="eyebrow">Bilder och dokument</p><h1>Mediebibliotek</h1><p>Ladda upp filer och håll bildernas alt-texter uppdaterade.</p></div></div>
     <form className="upload-form" onSubmit={upload}>
-      <label>Bild eller PDF<input name="file" type="file" accept="image/jpeg,image/png,image/webp,image/avif,application/pdf" required /></label>
+      <label>Bild eller PDF<input name="file" type="file" accept={ACCEPTED_MEDIA_TYPES} required /></label>
       <label>Alt-text för bilder<input name="upload-alt" maxLength={240} /><small>Beskriv bildens innehåll och funktion kort.</small></label>
       <button className="button button-primary" disabled={busy}><i className="ph ph-upload-simple" aria-hidden="true" />{busy ? 'Laddar upp…' : 'Ladda upp'}</button>
     </form>

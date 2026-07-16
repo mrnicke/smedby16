@@ -40,6 +40,29 @@ function RecoveryPassword({ client, onDone }: { client: SupabaseClient; onDone: 
   return <main className="admin-login"><form onSubmit={submit}><h1>Välj nytt lösenord</h1><label>Nytt lösenord<input type="password" minLength={12} required autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Upprepa lösenord<input type="password" minLength={12} required autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label><button className="button button-primary">Spara lösenord</button>{message && <p role="status">{message}</p>}</form></main>;
 }
 
+function MfaGate({ client, onReady }: { client: SupabaseClient; onReady: () => void }) {
+  const [factorId,setFactorId]=useState(''); const [challengeId,setChallengeId]=useState(''); const [qrCode,setQrCode]=useState(''); const [secret,setSecret]=useState(''); const [code,setCode]=useState(''); const [message,setMessage]=useState('Förbereder tvåfaktorsautentisering…'); const [busy,setBusy]=useState(true);
+  useEffect(()=>{let active=true;void(async()=>{
+    const assurance=await client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(!active)return;if(assurance.data?.currentLevel==='aal2'){onReady();return;}
+    const factors=await client.auth.mfa.listFactors();if(!active)return;
+    const verified=factors.data?.totp.find((factor)=>factor.status==='verified');
+    if(verified){setFactorId(verified.id);setMessage('Ange koden från din autentiseringsapp.');setBusy(false);return;}
+    for(const factor of factors.data?.totp.filter((item)=>item.status!=='verified')??[])await client.auth.mfa.unenroll({factorId:factor.id});
+    const enrollment=await client.auth.mfa.enroll({factorType:'totp',friendlyName:'Smedby 1:6 admin'});if(!active)return;
+    if(enrollment.error||!enrollment.data){setMessage('Tvåfaktorsautentisering kunde inte startas. Logga ut och försök igen.');setBusy(false);return;}
+    setFactorId(enrollment.data.id);setQrCode(enrollment.data.totp.qr_code);setSecret(enrollment.data.totp.secret);setMessage('Skanna QR-koden och ange sedan den sexsiffriga koden.');setBusy(false);
+  })();return()=>{active=false;};},[client,onReady]);
+  const verify=async(event:SyntheticEvent<HTMLFormElement>)=>{event.preventDefault();if(!/^\d{6}$/.test(code)){setMessage('Ange den sexsiffriga koden från autentiseringsappen.');return;}setBusy(true);let currentChallenge=challengeId;if(!currentChallenge){const challenge=await client.auth.mfa.challenge({factorId});if(challenge.error||!challenge.data){setMessage('Koden kunde inte kontrolleras. Försök igen.');setBusy(false);return;}currentChallenge=challenge.data.id;setChallengeId(currentChallenge);}const result=await client.auth.mfa.verify({factorId,challengeId:currentChallenge,code});if(result.error){setMessage('Koden stämmer inte eller har gått ut. Försök med en ny kod.');setCode('');setChallengeId('');setBusy(false);return;}await client.auth.refreshSession();onReady();};
+  return <main className="admin-login"><form onSubmit={verify}><div><p className="eyebrow">Extra säkerhetskontroll</p><h1>Tvåfaktorsautentisering</h1><p>{message}</p></div>{qrCode&&<><img src={qrCode} alt="QR-kod för autentiseringsappen"/><details><summary>Kan du inte skanna QR-koden?</summary><p>Ange den här nyckeln manuellt i autentiseringsappen:</p><code>{secret}</code></details></>}<label>Engångskod<input value={code} onChange={(event)=>setCode(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required/></label><button className="button button-primary" disabled={busy||!factorId}>{busy?'Kontrollerar…':'Verifiera och fortsätt'}</button><button className="text-button" type="button" onClick={()=>void client.auth.signOut()}>Logga ut</button></form></main>;
+}
+
+function FirstAdminClaim({ client, onClaimed }: { client: SupabaseClient; onClaimed: () => void }) {
+  const [displayName,setDisplayName]=useState(''); const [message,setMessage]=useState(''); const [busy,setBusy]=useState(false);
+  const submit=async(event:SyntheticEvent<HTMLFormElement>)=>{event.preventDefault();setBusy(true);setMessage('');const {error}=await client.rpc('claim_first_admin',{display_name:displayName.trim()});if(error){setMessage('Den första administratören kunde inte aktiveras. Kontot kan redan ha tagits i bruk.');setBusy(false);return;}onClaimed();};
+  return <main className="admin-login"><form onSubmit={submit}><div><p className="eyebrow">Säker grundkonfiguration</p><h1>Aktivera första administratören</h1><p>Det finns ännu ingen aktiv administratör. Ange ditt visningsnamn för att slutföra den auditerade engångsaktiveringen.</p></div><label>Visningsnamn<input value={displayName} onChange={(event)=>setDisplayName(event.target.value)} minLength={1} maxLength={120} autoComplete="name" required/></label><button className="button button-primary" disabled={busy}>{busy?'Aktiverar…':'Aktivera administratör'}</button><button className="text-button" type="button" onClick={()=>void client.auth.signOut()}>Logga ut</button><AdminNotice message={message} tone="error" onDismiss={()=>setMessage('')}/></form></main>;
+}
+
 function Shell({ client, session, role }: { client: SupabaseClient; session: Session; role:'editor'|'admin' }) {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -62,13 +85,20 @@ function Shell({ client, session, role }: { client: SupabaseClient; session: Ses
 export default function AdminApp() {
   const client = getSupabaseBrowserClient(); const [session, setSession] = useState<Session | null>(null); const [ready, setReady] = useState(false); const [allowed, setAllowed] = useState<boolean | null>(null); const [recovering, setRecovering] = useState(false);
   const [role,setRole]=useState<'editor'|'admin'>('editor');
+  const [aal2Ready,setAal2Ready]=useState(false);
+  const [firstAdminAvailable,setFirstAdminAvailable]=useState<boolean|null>(null);
   useEffect(() => { if (!client) { setReady(true); return; } client.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); }); const { data } = client.auth.onAuthStateChange((event, next) => { setSession(next); if (event === 'PASSWORD_RECOVERY') setRecovering(true); }); return () => data.subscription.unsubscribe(); }, [client]);
-  useEffect(() => { if (!client || !session) { setAllowed(null); return; } client.from('admin_profiles').select('active,role').eq('user_id', session.user.id).maybeSingle().then(({ data }) => {setAllowed(Boolean(data?.active));setRole(data?.role==='admin'?'admin':'editor');}); }, [client, session]);
+  useEffect(() => { setAal2Ready(false);setFirstAdminAvailable(null); if (!client || !session) { setAllowed(null); return; } void client.from('admin_profiles').select('active,role').eq('user_id', session.user.id).maybeSingle().then(async({ data }) => {if(data){setAllowed(Boolean(data.active));setRole(data.role==='admin'?'admin':'editor');setFirstAdminAvailable(false);return;}const availability=await client.rpc('first_admin_claim_available');setAllowed(false);setFirstAdminAvailable(!availability.error&&availability.data===true);}); }, [client, session?.user.id]);
   if (!client) return <main className="admin-setup"><h1>Adminsystemet behöver anslutas</h1><p>Lägg in <code>PUBLIC_SUPABASE_URL</code> och <code>PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> i en lokal <code>.env</code>-fil. Hemliga nycklar får inte användas här.</p></main>;
   if (!ready) return <AdminLoading label="Startar administrationen" />;
   if (!session) return <Login client={client} />;
   if (recovering) return <RecoveryPassword client={client} onDone={() => setRecovering(false)} />;
-  if (allowed === null) return <AdminLoading label="Kontrollerar behörighet" />;
+  if (allowed === null || (!allowed && firstAdminAvailable === null)) return <AdminLoading label="Kontrollerar behörighet" />;
+  if (!allowed && firstAdminAvailable) {
+    if (!aal2Ready) return <MfaGate client={client} onReady={()=>setAal2Ready(true)}/>;
+    return <FirstAdminClaim client={client} onClaimed={()=>{setRole('admin');setAllowed(true);setFirstAdminAvailable(false);}}/>;
+  }
   if (!allowed) return <main className="admin-setup"><h1>Åtkomst saknas</h1><p>Kontot är inloggat men är inte en aktiv administratör.</p><button onClick={() => client.auth.signOut()}>Logga ut</button></main>;
+  if (!aal2Ready) return <MfaGate client={client} onReady={()=>setAal2Ready(true)}/>;
   return <AdminDirtyProvider><Shell client={client} session={session} role={role}/></AdminDirtyProvider>;
 }

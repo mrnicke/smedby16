@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { cmsPageSchema, type CmsPage } from '../cms/schema';
+import { cmsPageSchema, editorDocumentV2Schema, type CmsPage } from '../cms/schema';
 import { getPublicSupabaseConfig } from './config';
+import { secureDocumentUrl } from './urls';
 
 export async function getPublishedPageSnapshot(pageKey: string): Promise<CmsPage | null> {
   const config = getPublicSupabaseConfig();
@@ -67,7 +68,7 @@ export async function getPublicCollectionsSnapshot(): Promise<PublicCollections>
     if (news.error || calendar.error || documents.error) throw news.error ?? calendar.error ?? documents.error;
     return {
       news: news.data ?? [], calendar: calendar.data ?? [],
-      documents: (documents.data ?? []).map((item) => ({ ...item, public_url: client.storage.from('public-media').getPublicUrl(item.storage_path).data.publicUrl })),
+      documents: (documents.data ?? []).map((item) => ({ ...item, public_url: secureDocumentUrl(config.url,item.id) })),
     };
   } catch (error) {
     if (import.meta.env.CMS_REQUIRED === 'true') throw error;
@@ -83,5 +84,5 @@ export async function getPublicRedirectsSnapshot(): Promise<Array<{old_path:stri
 
 export async function getPublicComponentsSnapshot(): Promise<Record<string,{published_definition:any}>> {
   const config=getPublicSupabaseConfig();if(!config)return {};
-  try{const client=createClient(config.url,config.publishableKey,{auth:{persistSession:false,autoRefreshToken:false}});const {data,error}=await client.from('reusable_components').select('id,published_definition').eq('is_published',true).is('archived_at',null);if(error)throw error;return Object.fromEntries((data??[]).map(item=>[item.id,item]));}catch(error){if(import.meta.env.CMS_REQUIRED==='true')throw error;return {};}
+  try{const client=createClient(config.url,config.publishableKey,{auth:{persistSession:false,autoRefreshToken:false}});const {data,error}=await client.from('reusable_components').select('id,published_definition').eq('is_published',true).is('archived_at',null);if(error)throw error;return Object.fromEntries((data??[]).flatMap(item=>{const parsed=editorDocumentV2Schema.safeParse(item.published_definition);return parsed.success?[[item.id,{published_definition:parsed.data}]]:[];}));}catch(error){if(import.meta.env.CMS_REQUIRED==='true')throw error;return {};}
 }

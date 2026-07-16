@@ -1,8 +1,10 @@
 import { z } from 'npm:zod@4';
-import { editorDocumentV2Schema } from '../../../src/lib/cms/schema.ts';
-import { hasBlockingQualityIssues, validateEditorQuality } from '../../../src/lib/cms/quality.ts';
-import { corsHeaders, json } from '../_shared/cors.ts';
+import { editorDocumentV2Schema } from '../_shared/cms-schema.ts';
+import { hasBlockingQualityIssues, validateEditorQuality } from '../_shared/cms-quality.ts';
+import { validatePublishedComponentInstances } from '../_shared/editor-validation.ts';
+import { json } from '../_shared/cors.ts';
 import { requireCapability, type Capability } from '../_shared/auth.ts';
+import { enforceMethod, handlePreflight, parseJson, passthroughError } from '../_shared/http.ts';
 
 const entitySchema = z.enum(['page','news','global_layout']);
 const schedulableEntitySchema = z.enum(['page','news']);
@@ -20,12 +22,12 @@ const tableFor = (type:'page'|'news'|'global_layout') => type === 'page' ? 'page
 const capabilityFor = (type:'page'|'news'|'global_layout', publish=false): Capability => type==='global_layout'?'manage_global_layouts':`${publish ? 'publish' : 'edit'}_${type === 'page' ? 'pages' : 'news'}` as Capability;
 
 Deno.serve(async (request) => {
-  if (request.method==='OPTIONS') return new Response(null,{status:204,headers:corsHeaders(request)});
-  if (request.method!=='POST') return json(request,{error:'Metoden stöds inte.'},405);
+  const preflight=handlePreflight(request,['POST']);if(preflight)return preflight;
+  const methodError=enforceMethod(request,['POST']);if(methodError)return methodError;
   try {
-    const input=requestSchema.parse(await request.json());
+    const input=await parseJson(request,requestSchema,262_144);
     const publishAction=['publish','unpublish','archive','schedule'].includes(input.action);
-    const {service,user}=await requireCapability(request,capabilityFor(input.entityType,publishAction));
+    const {service,user}=await requireCapability(request,capabilityFor(input.entityType,publishAction),{requireAal2:input.action!=='preview'});
     if(input.action==='create_page') {
       const staticRoutes=new Set(['/admin/','/kalender.ics/']);if(staticRoutes.has(input.slug))return json(request,{error:'Adressen används av en fast sida.'},400);
       let document=editorDocumentV2Schema.parse({version:2,root:[{id:crypto.randomUUID(),type:'section',variant:'default',width:'normal',spacing:'normal',columns:[{id:crypto.randomUUID(),type:'column',width:1,blocks:[{id:crypto.randomUUID(),type:'hero',heading:input.title,text:''}]}]}]});
@@ -57,6 +59,7 @@ Deno.serve(async (request) => {
       if(!lock||lock.user_id!==user.id||lock.lock_token!==input.lockToken||new Date(lock.expires_at)<=new Date()) return json(request,{error:'Redigeringslåset har löpt ut. Ladda om sidan.'},409);
     }
     if(input.action==='autosave') {
+      await validatePublishedComponentInstances(service,input.document);
       const {data:current}=await service.from('content_drafts').select('draft_version').eq('entity_type',input.entityType).eq('entity_id',input.entityId).maybeSingle();
       if((current?.draft_version??0)!==input.expectedDraftVersion) return json(request,{error:'Ett nyare utkast finns redan. Ladda om innan du fortsätter.'},409);
       const payload={entity_type:input.entityType,entity_id:input.entityId,snapshot:input.document,draft_version:input.expectedDraftVersion+1,base_published_version:input.basePublishedVersion,updated_by:user.id};
@@ -67,7 +70,7 @@ Deno.serve(async (request) => {
       if(currentPublishedVersion!==input.expectedPublishedVersion) return json(request,{error:'Innehållet har ändrats sedan du öppnade det. Ladda om och jämför ändringarna.'},409);
       const {data:draft}=await service.from('content_drafts').select('*').eq('entity_type',input.entityType).eq('entity_id',input.entityId).maybeSingle();
       if(!draft||draft.draft_version!==input.expectedDraftVersion) return json(request,{error:'Utkastet är inte den senaste versionen.'},409);
-      const document=editorDocumentV2Schema.parse(draft.snapshot); const issues=validateEditorQuality(document,{externalH1:input.entityType==='news',skipH1:input.entityType==='global_layout'});
+      const document=editorDocumentV2Schema.parse(draft.snapshot);await validatePublishedComponentInstances(service,document); const issues=validateEditorQuality(document,{externalH1:input.entityType==='news',skipH1:input.entityType==='global_layout'});
       if(hasBlockingQualityIssues(issues)) return json(request,{error:'Åtgärda de markerade kvalitetsfelen före publicering.',issues},400);
       const mutation=input.entityType==='global_layout'?{editor_document:document,version:currentPublishedVersion+1,is_published:true,updated_by:user.id}:{editor_version:2,editor_document:document,published_version:currentPublishedVersion+1,is_published:true,archived_at:null,updated_by:user.id};
       const versionColumn=input.entityType==='global_layout'?'version':'published_version';
@@ -81,7 +84,7 @@ Deno.serve(async (request) => {
     const versionMutation=input.entityType==='global_layout'?{...mutation,version:currentPublishedVersion+1,updated_by:user.id}:{...mutation,published_version:currentPublishedVersion+1,updated_by:user.id};
     const {data,error}=await service.from(table).update(versionMutation).eq('id',input.entityId).select().single(); if(error) throw error; return json(request,{data});
   } catch(error) {
-    if(error instanceof Response) return new Response(await error.text(),{status:error.status,headers:{...corsHeaders(request),'Content-Type':'text/plain; charset=utf-8'}});
+    if(error instanceof Response) return passthroughError(request,error);
     if(error instanceof z.ZodError) return json(request,{error:'Kontrollera de markerade fälten.'},400);
     console.error('editor-content failed',error instanceof Error?error.message:'unknown'); return json(request,{error:'Åtgärden kunde inte genomföras just nu.'},500);
   }

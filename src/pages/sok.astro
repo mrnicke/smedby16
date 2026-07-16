@@ -1,4 +1,5 @@
 ---
+import { safeJsonForHtmlScript } from '../lib/security/safeJson';
 import Layout from '../components/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import Section from '../components/Section.astro';
@@ -29,6 +30,7 @@ const supabaseConfig = getPublicSupabaseConfig();
               id="site-search-query"
               name="q"
               type="search"
+              maxlength="120"
               autocomplete="off"
               placeholder="Exempel: parkering, stadgar eller stämma"
               data-search-query
@@ -64,8 +66,8 @@ const supabaseConfig = getPublicSupabaseConfig();
     </div>
   </Section>
 
-  <script is:inline type="application/json" id="search-index" set:html={JSON.stringify(searchEntries)}></script>
-  <script is:inline type="application/json" id="search-supabase-config" set:html={JSON.stringify(supabaseConfig)}></script>
+  <script is:inline type="application/json" id="search-index" set:html={safeJsonForHtmlScript(searchEntries)}></script>
+  <script is:inline type="application/json" id="search-supabase-config" set:html={safeJsonForHtmlScript(supabaseConfig)}></script>
   <script>
     const searchForm = document.querySelector('[data-site-search]');
     const searchData = document.querySelector('#search-index');
@@ -123,7 +125,7 @@ const supabaseConfig = getPublicSupabaseConfig();
         if (!(queryInput instanceof HTMLInputElement) || !(typeSelect instanceof HTMLSelectElement)) return;
         if (!(summary instanceof HTMLElement) || !(results instanceof HTMLOListElement) || !(empty instanceof HTMLElement)) return;
 
-        const query = queryInput.value.trim();
+        const query = queryInput.value.trim().slice(0, 120);
         const selectedType = typeSelect.value;
         const terms = normalize(query).split(/\s+/).filter(Boolean);
         results.replaceChildren();

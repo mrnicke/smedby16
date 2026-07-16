@@ -1,9 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { buildCalendarIcs } from '../../../src/lib/calendar/ics.ts';
+import { enforceMethod, handlePreflight } from '../_shared/http.ts';
+import { buildCalendarIcs } from '../_shared/calendar-ics.ts';
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+  const preflight = handlePreflight(request, ['GET']); if (preflight) return preflight;
+  const methodError = enforceMethod(request, ['GET']); if (methodError) return methodError;
   const url = Deno.env.get('SUPABASE_URL')!; const key = Deno.env.get('SUPABASE_ANON_KEY')!;
   const client = createClient(url, key, { auth: { persistSession: false } });
   const { data, error } = await client.from('public_calendar_events').select('*').order('starts_at');

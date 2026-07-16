@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 
 const url=process.env.SUPABASE_URL,anonKey=process.env.SUPABASE_ANON_KEY,serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!anonKey||!serviceKey)throw new Error('Lokala Supabase-testvariabler krävs.');
@@ -7,6 +7,9 @@ const service=createClient(url,serviceKey,{auth:{persistSession:false,autoRefres
 const suffix=randomUUID().slice(0,8),password=`${randomBytes(18).toString('base64url')}Aa1!`,email=`e2e-editor-${suffix}@example.invalid`;
 let userId;const pageIds=[],templateIds=[],componentIds=[],layoutIds=[];
 const assert=(value,message)=>{if(!value)throw new Error(message);};
+const base32Decode=(value)=>{const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const character of value.replace(/=+$/,'').toUpperCase())bits+=alphabet.indexOf(character).toString(2).padStart(5,'0');const bytes=[];for(let index=0;index+8<=bits.length;index+=8)bytes.push(Number.parseInt(bits.slice(index,index+8),2));return Buffer.from(bytes);};
+const totp=(secret)=>{const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30_000)));const digest=createHmac('sha1',base32Decode(secret)).update(counter).digest();const offset=digest[digest.length-1]&15;return String((digest.readUInt32BE(offset)&0x7fffffff)%1_000_000).padStart(6,'0');};
+async function elevate(client){const enrollment=await client.auth.mfa.enroll({factorType:'totp',friendlyName:'editor-v2-e2e'});if(enrollment.error)throw enrollment.error;const challenge=await client.auth.mfa.challenge({factorId:enrollment.data.id});if(challenge.error)throw challenge.error;const verified=await client.auth.mfa.verify({factorId:enrollment.data.id,challengeId:challenge.data.id,code:totp(enrollment.data.totp.secret)});if(verified.error)throw verified.error;const assurance=await client.auth.mfa.getAuthenticatorAssuranceLevel();assert(assurance.data.currentLevel==='aal2','Editor E2E nådde inte AAL2.');const session=await client.auth.getSession();if(!session.data.session)throw new Error('Editor E2E saknar AAL2-session.');return session.data.session.access_token;}
 const doc=(heading='Editor E2E',componentId)=>({version:2,root:[{id:randomUUID(),type:'section',variant:'default',width:'normal',spacing:'normal',columns:[{id:randomUUID(),type:'column',width:1,blocks:[{id:randomUUID(),type:'hero',heading,text:'Verifierat innehåll'},...(componentId?[{id:randomUUID(),type:'component_instance',componentId,properties:{}}]:[])]}]}]});
 let token;
 async function invoke(name,body){const response=await fetch(`${url}/functions/v1/${name}`,{method:'POST',headers:{apikey:anonKey,authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(body)});const text=await response.text();let payload;try{payload=text?JSON.parse(text):null;}catch{payload=text;}return{status:response.status,payload};}
@@ -21,7 +24,7 @@ async function cleanup(){const paths=[`/e2e-editor-${suffix}/`,`/e2e-renamed-${s
 try{
   const created=await service.auth.admin.createUser({email,password,email_confirm:true});if(created.error||!created.data.user)throw created.error??new Error('Testanvändaren kunde inte skapas.');userId=created.data.user.id;
   const profile=await service.from('admin_profiles').insert({user_id:userId,display_name:'Editor v2 E2E',active:true,role:'admin'});if(profile.error)throw profile.error;
-  const client=createClient(url,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});const signed=await client.auth.signInWithPassword({email,password});if(signed.error||!signed.data.session)throw signed.error??new Error('Inloggning misslyckades.');token=signed.data.session.access_token;
+  const client=createClient(url,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});const signed=await client.auth.signInWithPassword({email,password});if(signed.error||!signed.data.session)throw signed.error??new Error('Inloggning misslyckades.');token=await elevate(client);
 
   const page=await createPage(`Editor E2E ${suffix}`,`/e2e-editor-${suffix}/`);const lock=await acquire(page.id);
   const preview=await invoke('editor-content',{action:'preview',entityType:'page',entityId:page.id});assert(preview.status===200&&!preview.payload.data.draft,'Previewpaketet var ogiltigt.');
