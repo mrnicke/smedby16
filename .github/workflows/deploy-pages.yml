@@ -14,8 +14,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -24,6 +22,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     environment: github-pages
     env:
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
@@ -32,24 +33,44 @@ jobs:
       CMS_REQUIRED: 'true'
       PUBLIC_ADVANCED_EDITOR: ${{ vars.PUBLIC_ADVANCED_EDITOR || 'false' }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --audit-level=high
       - run: npm run check
       - run: npm test
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm run build
-      - name: Reject secrets in the artifact
+      - name: Scan built artifact for secrets
         shell: bash
         run: |
-          if grep -R -E 'service_role|sb_secret_|SUPABASE_SERVICE_ROLE_KEY|GITHUB_ACTIONS_TOKEN' dist; then
-            echo 'A secret-like value was found in dist.' >&2
-            exit 1
-          fi
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
+          git add -f dist
+          git -c user.name=artifact-scan -c user.email=artifact-scan@example.invalid commit -m "Temporary artifact scan"
+      - name: Scan built artifact with TruffleHog
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          path: ./
+          base: HEAD^
+          head: HEAD
+          version: 3.95.9
+          extra_args: --results=verified,unknown --no-update
+      - name: Generate CycloneDX SBOM
+        shell: bash
+        run: npm sbom --sbom-format cyclonedx > sbom.cdx.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 30
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: dist
 
@@ -58,7 +79,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: build
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - name: Mark requested deployment in progress
         if: ${{ inputs.deployment_id != '' }}
@@ -68,10 +93,13 @@ jobs:
           CALLBACK_SECRET: ${{ secrets.DEPLOYMENT_WEBHOOK_SECRET }}
           DEPLOYMENT_ID: ${{ inputs.deployment_id }}
         run: |
-          curl --fail --silent --show-error -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "x-deployment-secret: $CALLBACK_SECRET" -d "{\"deploymentId\":\"$DEPLOYMENT_ID\",\"status\":\"in_progress\",\"runId\":${{ github.run_id }}}"
+          payload=$(jq -nc --arg id "$DEPLOYMENT_ID" --argjson run "${{ github.run_id }}" '{deploymentId:$id,status:"in_progress",runId:$run}')
+          timestamp=$(date +%s)
+          signature=$(printf '%s' "$timestamp.$payload" | openssl dgst -sha256 -hmac "$CALLBACK_SECRET" -hex | awk '{print $2}')
+          curl --fail --silent --show-error -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "x-webhook-timestamp: $timestamp" -H "x-webhook-signature: sha256=$signature" --data-binary "$payload"
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
       - name: Record deployment result
         if: ${{ always() }}
         shell: bash
@@ -82,4 +110,7 @@ jobs:
           DEPLOYMENT_STATUS: ${{ steps.deployment.outcome == 'success' && 'success' || 'failed' }}
           TRIGGER_TYPE: ${{ github.event_name == 'schedule' && 'nightly' || github.event_name == 'push' && 'code' || 'manual' }}
         run: |
-          curl --fail --silent --show-error -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "x-deployment-secret: $CALLBACK_SECRET" -d "{\"deploymentId\":\"$DEPLOYMENT_ID\",\"triggerType\":\"$TRIGGER_TYPE\",\"status\":\"$DEPLOYMENT_STATUS\",\"runId\":${{ github.run_id }}}"
+          payload=$(jq -nc --arg id "$DEPLOYMENT_ID" --arg trigger "$TRIGGER_TYPE" --arg status "$DEPLOYMENT_STATUS" --argjson run "${{ github.run_id }}" '{deploymentId:$id,triggerType:$trigger,status:$status,runId:$run}')
+          timestamp=$(date +%s)
+          signature=$(printf '%s' "$timestamp.$payload" | openssl dgst -sha256 -hmac "$CALLBACK_SECRET" -hex | awk '{print $2}')
+          curl --fail --silent --show-error -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "x-webhook-timestamp: $timestamp" -H "x-webhook-signature: sha256=$signature" --data-binary "$payload"

@@ -33,14 +33,19 @@ Gör momenten i ordning. Lägg aldrig hemliga värden i Git, `.env.example`, Git
    npx.cmd supabase functions deploy editor-content
    npx.cmd supabase functions deploy editor-lock
    npx.cmd supabase functions deploy editor-library
+   npx.cmd supabase functions deploy manage-content
+   npx.cmd supabase functions deploy manage-media
+   npx.cmd supabase functions deploy manage-navigation
    npx.cmd supabase functions deploy manage-redirect
+   npx.cmd supabase functions deploy verify-media-upload
+   npx.cmd supabase functions deploy download-document --no-verify-jwt
    npx.cmd supabase functions deploy run-scheduled-publications --no-verify-jwt
    ```
 8. Under Authentication, stäng av publik signup och anonyma inloggningar. Ange Site URL `https://www.smedby1-6.se/admin/` och redirect-URL:er för samma adress samt localhost under utveckling.
 9. Konfigurera Custom SMTP före produktion. Lägg SMTP-lösenordet endast i Supabase Dashboard.
-10. Skapa första Auth-användaren genom Supabase Dashboard. Lägg sedan användarens UUID i `admin_profiles` med en kontrollerad SQL-migrering eller Dashboard-insättning. Skapa aldrig publik signup.
-11. Ladda upp den befintliga PDF-filen till `public-media/documents/` och uppdatera dess metadata innan dokumentposten publiceras.
-12. Konfigurera ett skyddat Cron-anrop till `run-scheduled-publications`. Authorization ska vara server-side och får aldrig exponeras i klienten.
+10. Skapa första Auth-användaren genom Supabase Dashboard och logga in i `/admin/`. Slutför TOTP/AAL2 och använd därefter engångsflödet **Aktivera första administratören**. Skriv inte manuellt till `admin_profiles`; RPC:n serialiserar claim-anropet och auditloggar resultatet. Skapa aldrig publik signup.
+11. Konfigurera dokumentmalware-scannern och ladda därefter upp PDF-filen via admin. PDF:en ska först ligga i privat karantän och får endast flyttas till `public-media` efter ett godkänt scannersvar.
+12. Konfigurera ett skyddat Cron-anrop till `run-scheduled-publications`. Skicka rå JSON-body tillsammans med `x-webhook-timestamp` och `x-webhook-signature`, där signaturen är HMAC-SHA256 över `<unix timestamp>.<rå body>` med `CRON_WEBHOOK_SECRET`. Hemligheten ska endast finnas server-side och ska vara separat från service role och deploymenthemligheten.
 
 Aktivera inte `PUBLIC_ADVANCED_EDITOR` förrän migration, Edge Functions och RLS-tester har passerat. Den fullständiga editorordningen och rollbackvägen finns i [`editor-v2.md`](editor-v2.md).
 
@@ -53,6 +58,9 @@ Skapa en fine-grained GitHub-token som endast gäller detta repository och endas
 - `GITHUB_REPO=smedby16`
 - `GITHUB_ACTIONS_TOKEN`
 - `DEPLOYMENT_WEBHOOK_SECRET` med ett separat slumpmässigt värde
+- `CRON_WEBHOOK_SECRET` med ett annat separat slumpmässigt värde
+- `DOCUMENT_SCAN_URL` till en godkänd HTTPS-baserad malware-scanner
+- `DOCUMENT_SCAN_TOKEN` för scannern, lagrad endast som Edge Function-secret
 
 Supabase tillhandahåller `SUPABASE_URL`, anon/publishable-konfiguration och service-role till Edge Functions. Kopiera aldrig service-role till egna publika variabler.
 
