@@ -34,13 +34,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4",
-    "@testing-library/jest-dom": "^6.9.1",
+    "@astrojs/check": "^0.9.10",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
-    "@vitejs/plugin-react": "^6.0.3",
-    "jsdom": "^29.1.1",
-    "supabase": "^2.109.1",
-    "typescript": "^5.9.0",
-    "vitest": "^4.1.10"
+    "@vitejs/plugin-react": "^6.1.0",
+    "jsdom": "^30.0.1",
+    "supabase": "^2.115.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   }
 }
