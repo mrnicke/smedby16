@@ -62,7 +62,7 @@ jobs:
           base: HEAD^
           head: HEAD
           version: 3.95.9
-          extra_args: --results=verified,unknown --no-update
+          extra_args: --results=verified,unknown
       - name: Generate CycloneDX SBOM
         shell: bash
         run: npm sbom --sbom-format cyclonedx > sbom.cdx.json
